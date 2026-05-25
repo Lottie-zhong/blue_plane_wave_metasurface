@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+
+# Environments
+.venv/
+env/
+.env
+.env.*
+
+# Local runtime configs
+configs/runtime.yaml
+configs/runtime.*.yaml
+
+# PyCharm
+.idea/
+*.iml
+
+# Data and outputs
+data/
+outputs/
+logs/
+checkpoints/
+results/
+
+# Lumerical / simulation outputs
+*.fsp
+*.ldf
+*.lsf
+*.dat
+*.mat
+*.h5
+*.hdf5
+*.npy
+*.npz
+*.csv
+
+# Model weights
+*.pt
+*.pth
+*.ckpt
+*.onnx
+
