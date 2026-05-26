@@ -59,6 +59,7 @@ def test_nanofin_single_dry_run_does_not_import_lumapi(tmp_path: Path) -> None:
     assert reader.fieldnames == SINGLE_NANOFIN_FIELDS
     assert loaded_rows[0]["period_nm"] == "220"
     assert loaded_rows[0]["transmission"] == ""
+    assert loaded_rows[0]["farfield_peak"] == ""
 
 
 def test_nanofin_setup_only_saves_model_without_run(tmp_path: Path) -> None:
@@ -85,6 +86,30 @@ def test_nanofin_setup_only_saves_model_without_run(tmp_path: Path) -> None:
     assert 'farfieldsettings("near field samples per wavelength",4);' in lumapi.fdtd.eval_commands
 
 
+def test_nanofin_extract_only_loads_fsp_without_run(tmp_path: Path) -> None:
+    config = load_nanofin_single_config(REPO_ROOT / "configs" / "nanofin_single.yaml")
+    runtime = RuntimeConfig(mode="test", enable_lumerical=True, lumapi_python_api_dir="", hide_gui=True)
+    fsp_input = tmp_path / "solved_single_nanofin.fsp"
+    lumapi = _FakeLumapi()
+
+    row = run_single_nanofin_lumerical(
+        config=config,
+        runtime=runtime,
+        lumapi=lumapi,
+        load_fsp=fsp_input,
+        extract_only=True,
+    )
+
+    assert row["status"] == "ok"
+    assert row["transmission"] == 0.75
+    assert row["phase_rad"] == 0.0
+    assert row["farfield_peak"] == 3.0
+    assert row["farfield_shape"] == "2x2"
+    assert lumapi.fdtd.loaded_path == str(fsp_input)
+    assert lumapi.fdtd.run_called is False
+    assert lumapi.fdtd.farfield_args == ("T", 1, 1001, 1001, 1, 0, 0, 0, 0)
+
+
 class _FakeLumapi:
     def __init__(self) -> None:
         self.fdtd = _FakeFDTD()
@@ -99,6 +124,8 @@ class _FakeFDTD:
         self.hide = False
         self.run_called = False
         self.saved_path = ""
+        self.loaded_path = ""
+        self.farfield_args: tuple[object, ...] = ()
         self.eval_commands: list[str] = []
 
     def switchtolayout(self) -> None:
@@ -131,8 +158,21 @@ class _FakeFDTD:
     def save(self, path: str) -> None:
         self.saved_path = path
 
+    def load(self, path: str) -> None:
+        self.loaded_path = path
+
     def run(self) -> None:
         self.run_called = True
+
+    def transmission(self, _name: str) -> float:
+        return 0.75
+
+    def getresult(self, _name: str, _result: str) -> dict[str, object]:
+        return {"Ex": [[1 + 0j]], "Ey": [[0 + 1j]]}
+
+    def farfield3d(self, *args: object) -> list[list[float]]:
+        self.farfield_args = args
+        return [[1.0, 2.0], [3.0, 0.5]]
 
     def close(self) -> None:
         pass

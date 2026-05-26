@@ -21,6 +21,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--dry-run", action="store_true", help="Generate planned single-case CSV without lumapi.")
     parser.add_argument("--setup-only", action="store_true", help="Build and save the FDTD model without running it.")
     parser.add_argument("--fsp-output", default=None, help="Optional .fsp output path for --setup-only.")
+    parser.add_argument("--load-fsp", default=None, help="Open an existing .fsp before run or extraction.")
+    parser.add_argument("--extract-only", action="store_true", help="Extract results from --load-fsp without running.")
     parser.add_argument("--output", default=None, help="Optional output CSV path.")
     return parser.parse_args()
 
@@ -34,6 +36,8 @@ def main() -> int:
         dry_run=args.dry_run,
         setup_only=args.setup_only,
         fsp_output=args.fsp_output,
+        load_fsp=args.load_fsp,
+        extract_only=args.extract_only,
     )
     rows = runner.run()
 

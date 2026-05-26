@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import cmath
 from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType
@@ -20,6 +21,8 @@ SINGLE_NANOFIN_FIELDS = [
     "incident_polarization",
     "transmission",
     "phase_rad",
+    "farfield_peak",
+    "farfield_shape",
     "status",
     "note",
 ]
@@ -32,6 +35,8 @@ class SingleNanofinRunner:
     runtime: Optional[RuntimeConfig] = None
     setup_only: bool = False
     fsp_output: Optional[Path] = None
+    load_fsp: Optional[Path] = None
+    extract_only: bool = False
 
     @classmethod
     def from_runtime_file(
@@ -41,15 +46,20 @@ class SingleNanofinRunner:
         dry_run: bool,
         setup_only: bool = False,
         fsp_output: Optional[Union[str, Path]] = None,
+        load_fsp: Optional[Union[str, Path]] = None,
+        extract_only: bool = False,
     ) -> "SingleNanofinRunner":
         runtime = None if dry_run or runtime_path is None else load_runtime_config(runtime_path)
         output_path = None if fsp_output is None else Path(fsp_output)
+        input_path = None if load_fsp is None else Path(load_fsp)
         return cls(
             config=config,
             dry_run=dry_run,
             runtime=runtime,
             setup_only=setup_only,
             fsp_output=output_path,
+            load_fsp=input_path,
+            extract_only=extract_only,
         )
 
     def run(self) -> list[dict[str, object]]:
@@ -69,6 +79,8 @@ class SingleNanofinRunner:
                 lumapi,
                 setup_only=self.setup_only,
                 fsp_output=self.fsp_output,
+                load_fsp=self.load_fsp,
+                extract_only=self.extract_only,
             )
         ]
 
@@ -85,6 +97,8 @@ def build_single_nanofin_dry_run_row(config: NanofinSingleConfig) -> dict[str, o
         "incident_polarization": config.target.incident_polarization,
         "transmission": "",
         "phase_rad": "",
+        "farfield_peak": "",
+        "farfield_shape": "",
         "status": "dry_run",
         "note": "single nanofin setup only; lumapi was not imported",
     }
@@ -96,17 +110,25 @@ def run_single_nanofin_lumerical(
     lumapi: ModuleType,
     setup_only: bool = False,
     fsp_output: Optional[Path] = None,
+    load_fsp: Optional[Path] = None,
+    extract_only: bool = False,
 ) -> dict[str, object]:
     geometry = config.geometry
     note = ""
     transmission: object = ""
     phase_rad: object = ""
+    farfield_peak: object = ""
+    farfield_shape: object = ""
     status = "error"
 
     fdtd = None
     try:
         fdtd = lumapi.FDTD(hide=runtime.hide_gui)
-        _build_single_nanofin_model(fdtd, config)
+        if load_fsp is not None:
+            fdtd.load(str(load_fsp))
+        else:
+            _build_single_nanofin_model(fdtd, config)
+
         if setup_only:
             if fsp_output is not None:
                 fsp_output.parent.mkdir(parents=True, exist_ok=True)
@@ -116,9 +138,9 @@ def run_single_nanofin_lumerical(
                 note = "model built; solver was not run"
             status = "setup_only"
         else:
-            fdtd.run()
-            transmission = _safe_float(fdtd.transmission("T"))
-            phase_rad = _extract_center_phase_rad(fdtd, "phase_monitor", config.target.incident_polarization)
+            if not extract_only:
+                fdtd.run()
+            transmission, phase_rad, farfield_peak, farfield_shape = _extract_single_nanofin_results(fdtd, config)
             status = "ok"
     except Exception as exc:  # Lumerical exceptions vary by installation.
         note = f"{type(exc).__name__}: {exc}"
@@ -139,6 +161,8 @@ def run_single_nanofin_lumerical(
         "incident_polarization": config.target.incident_polarization,
         "transmission": transmission,
         "phase_rad": phase_rad,
+        "farfield_peak": farfield_peak,
+        "farfield_shape": farfield_shape,
         "status": status,
         "note": note,
     }
@@ -267,28 +291,77 @@ def _project_farfield_3d(fdtd: object, monitor_name: str, config: NanofinSingleC
     )
 
 
-def _extract_center_phase_rad(fdtd: object, monitor_name: str, polarization: str) -> float:
-    import numpy as np
+def _extract_single_nanofin_results(fdtd: object, config: NanofinSingleConfig) -> tuple[object, object, object, object]:
+    transmission = _safe_float(fdtd.transmission("T"))
+    phase_rad = _extract_center_phase_rad(fdtd, "phase_monitor", config.target.incident_polarization)
+    farfield = _project_farfield_3d(fdtd, "T", config)
+    farfield_values = [float(value) for value in _flatten_values(farfield)]
+    farfield_peak = max(farfield_values) if farfield_values else ""
+    farfield_shape = "x".join(str(size) for size in _shape_of(farfield))
+    return transmission, phase_rad, farfield_peak, farfield_shape
 
+
+def _extract_center_phase_rad(fdtd: object, monitor_name: str, polarization: str) -> float:
     result = fdtd.getresult(monitor_name, "E")
     key = "Ex" if _polarization_angle_deg(polarization) == 0 else "Ey"
-    field = np.asarray(result[key]).squeeze()
-    center = tuple(axis_size // 2 for axis_size in field.shape)
-    return float(np.angle(field[center]))
+    field = _squeeze(result[key])
+    center_value = _center_value(field)
+    return float(cmath.phase(center_value))
 
 
 def _safe_float(value: object) -> object:
-    import numpy as np
-
     try:
         if hasattr(value, "item"):
             return value.item()
-        array = np.asarray(value).squeeze()
-        if array.size == 1:
-            return float(array.item())
-        return float(np.mean(array))
+        values = [float(item) for item in _flatten_values(value)]
+        if not values:
+            return ""
+        if len(values) == 1:
+            return values[0]
+        return sum(values) / len(values)
     except Exception:
         return value
+
+
+def _squeeze(value: object) -> object:
+    if hasattr(value, "squeeze"):
+        return value.squeeze()
+    while isinstance(value, (list, tuple)) and len(value) == 1:
+        value = value[0]
+    return value
+
+
+def _shape_of(value: object) -> tuple[int, ...]:
+    if hasattr(value, "shape"):
+        return tuple(int(size) for size in value.shape if int(size) != 1)
+    if isinstance(value, (list, tuple)):
+        if not value:
+            return (0,)
+        return (len(value),) + _shape_of(value[0])
+    return ()
+
+
+def _center_value(value: object) -> complex:
+    squeezed = _squeeze(value)
+    shape = _shape_of(squeezed)
+    if not shape:
+        return complex(squeezed)  # type: ignore[arg-type]
+    current = squeezed
+    for axis_size in shape:
+        current = current[axis_size // 2]  # type: ignore[index]
+    return complex(current)  # type: ignore[arg-type]
+
+
+def _flatten_values(value: object) -> list[object]:
+    squeezed = _squeeze(value)
+    if hasattr(squeezed, "flatten"):
+        return list(squeezed.flatten())
+    if isinstance(squeezed, (list, tuple)):
+        values: list[object] = []
+        for item in squeezed:
+            values.extend(_flatten_values(item))
+        return values
+    return [squeezed]
 
 
 def write_single_nanofin_summary(rows: list[dict[str, object]], output_path: Union[str, Path]) -> Path:
