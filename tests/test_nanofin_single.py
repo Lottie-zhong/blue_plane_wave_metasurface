@@ -107,7 +107,7 @@ def test_nanofin_extract_only_loads_fsp_without_run(tmp_path: Path) -> None:
     assert row["farfield_shape"] == "2x2"
     assert lumapi.fdtd.loaded_path == str(fsp_input)
     assert lumapi.fdtd.run_called is False
-    assert lumapi.fdtd.farfield_args == ("T", 1, 1001, 1001, 1, 1, 1, 0, 0)
+    assert lumapi.fdtd.farfield_args == ("T", 1, 1001, 1001, 1, 1, 1, 0, 1)
 
 
 class _FakeLumapi:
