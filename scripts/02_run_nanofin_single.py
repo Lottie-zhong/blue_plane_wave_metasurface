@@ -19,6 +19,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--config", required=True, help="Path to public single-nanofin YAML config.")
     parser.add_argument("--runtime", default="configs/runtime.yaml", help="Path to local runtime YAML.")
     parser.add_argument("--dry-run", action="store_true", help="Generate planned single-case CSV without lumapi.")
+    parser.add_argument("--setup-only", action="store_true", help="Build and save the FDTD model without running it.")
+    parser.add_argument("--fsp-output", default=None, help="Optional .fsp output path for --setup-only.")
     parser.add_argument("--output", default=None, help="Optional output CSV path.")
     return parser.parse_args()
 
@@ -30,6 +32,8 @@ def main() -> int:
         config=config,
         runtime_path=args.runtime,
         dry_run=args.dry_run,
+        setup_only=args.setup_only,
+        fsp_output=args.fsp_output,
     )
     rows = runner.run()
 

@@ -30,6 +30,8 @@ class SingleNanofinRunner:
     config: NanofinSingleConfig
     dry_run: bool = False
     runtime: Optional[RuntimeConfig] = None
+    setup_only: bool = False
+    fsp_output: Optional[Path] = None
 
     @classmethod
     def from_runtime_file(
@@ -37,9 +39,18 @@ class SingleNanofinRunner:
         config: NanofinSingleConfig,
         runtime_path: Optional[Union[str, Path]],
         dry_run: bool,
+        setup_only: bool = False,
+        fsp_output: Optional[Union[str, Path]] = None,
     ) -> "SingleNanofinRunner":
         runtime = None if dry_run or runtime_path is None else load_runtime_config(runtime_path)
-        return cls(config=config, dry_run=dry_run, runtime=runtime)
+        output_path = None if fsp_output is None else Path(fsp_output)
+        return cls(
+            config=config,
+            dry_run=dry_run,
+            runtime=runtime,
+            setup_only=setup_only,
+            fsp_output=output_path,
+        )
 
     def run(self) -> list[dict[str, object]]:
         if self.dry_run:
@@ -51,7 +62,15 @@ class SingleNanofinRunner:
             raise RuntimeError("runtime.enable_lumerical is false; use --dry-run or update runtime.yaml")
 
         lumapi = import_lumapi(self.runtime)
-        return [run_single_nanofin_lumerical(self.config, self.runtime, lumapi)]
+        return [
+            run_single_nanofin_lumerical(
+                self.config,
+                self.runtime,
+                lumapi,
+                setup_only=self.setup_only,
+                fsp_output=self.fsp_output,
+            )
+        ]
 
 
 def build_single_nanofin_dry_run_row(config: NanofinSingleConfig) -> dict[str, object]:
@@ -75,6 +94,8 @@ def run_single_nanofin_lumerical(
     config: NanofinSingleConfig,
     runtime: RuntimeConfig,
     lumapi: ModuleType,
+    setup_only: bool = False,
+    fsp_output: Optional[Path] = None,
 ) -> dict[str, object]:
     geometry = config.geometry
     note = ""
@@ -86,10 +107,19 @@ def run_single_nanofin_lumerical(
     try:
         fdtd = lumapi.FDTD(hide=runtime.hide_gui)
         _build_single_nanofin_model(fdtd, config)
-        fdtd.run()
-        transmission = _safe_float(fdtd.transmission("T"))
-        phase_rad = _extract_center_phase_rad(fdtd, "phase_monitor", config.target.incident_polarization)
-        status = "ok"
+        if setup_only:
+            if fsp_output is not None:
+                fsp_output.parent.mkdir(parents=True, exist_ok=True)
+                fdtd.save(str(fsp_output))
+                note = f"model saved to {fsp_output}; solver was not run"
+            else:
+                note = "model built; solver was not run"
+            status = "setup_only"
+        else:
+            fdtd.run()
+            transmission = _safe_float(fdtd.transmission("T"))
+            phase_rad = _extract_center_phase_rad(fdtd, "phase_monitor", config.target.incident_polarization)
+            status = "ok"
     except Exception as exc:  # Lumerical exceptions vary by installation.
         note = f"{type(exc).__name__}: {exc}"
     finally:

@@ -10,10 +10,11 @@ SRC_DIR = REPO_ROOT / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-from metasurface.config import load_nanofin_single_config
+from metasurface.config import RuntimeConfig, load_nanofin_single_config
 from metasurface.nanofin_single import (
     SINGLE_NANOFIN_FIELDS,
     SingleNanofinRunner,
+    run_single_nanofin_lumerical,
     write_single_nanofin_summary,
 )
 
@@ -51,3 +52,72 @@ def test_nanofin_single_dry_run_does_not_import_lumapi(tmp_path: Path) -> None:
     assert reader.fieldnames == SINGLE_NANOFIN_FIELDS
     assert loaded_rows[0]["period_nm"] == "220"
     assert loaded_rows[0]["transmission"] == ""
+
+
+def test_nanofin_setup_only_saves_model_without_run(tmp_path: Path) -> None:
+    config = load_nanofin_single_config(REPO_ROOT / "configs" / "nanofin_single.yaml")
+    runtime = RuntimeConfig(mode="test", enable_lumerical=True, lumapi_python_api_dir="", hide_gui=True)
+    fsp_output = tmp_path / "single_nanofin.fsp"
+    lumapi = _FakeLumapi()
+
+    row = run_single_nanofin_lumerical(
+        config=config,
+        runtime=runtime,
+        lumapi=lumapi,
+        setup_only=True,
+        fsp_output=fsp_output,
+    )
+
+    assert row["status"] == "setup_only"
+    assert "solver was not run" in str(row["note"])
+    assert lumapi.fdtd.run_called is False
+    assert lumapi.fdtd.saved_path == str(fsp_output)
+
+
+class _FakeLumapi:
+    def __init__(self) -> None:
+        self.fdtd = _FakeFDTD()
+
+    def FDTD(self, hide: bool) -> "_FakeFDTD":
+        self.fdtd.hide = hide
+        return self.fdtd
+
+
+class _FakeFDTD:
+    def __init__(self) -> None:
+        self.hide = False
+        self.run_called = False
+        self.saved_path = ""
+
+    def switchtolayout(self) -> None:
+        pass
+
+    def deleteall(self) -> None:
+        pass
+
+    def addfdtd(self) -> None:
+        pass
+
+    def addrect(self) -> None:
+        pass
+
+    def addplane(self) -> None:
+        pass
+
+    def addpower(self) -> None:
+        pass
+
+    def addprofile(self) -> None:
+        pass
+
+    def set(self, _name: str, _value: object) -> None:
+        pass
+
+    def save(self, path: str) -> None:
+        self.saved_path = path
+
+    def run(self) -> None:
+        self.run_called = True
+
+    def close(self) -> None:
+        pass
