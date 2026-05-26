@@ -152,7 +152,9 @@ def _build_single_nanofin_model(fdtd: object, config: NanofinSingleConfig) -> No
     fdtd.set("y span", width)
     fdtd.set("z min", 0)
     fdtd.set("z max", height)
-    fdtd.set("rotation 1", geometry.rotation_deg)
+    if geometry.rotation_deg:
+        fdtd.set("first axis", "z")
+        fdtd.set("rotation 1", geometry.rotation_deg)
     _set_nanofin_material(fdtd, config)
 
     fdtd.addplane()
