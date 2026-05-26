@@ -176,7 +176,7 @@ class _FakeFDTD:
 
     def farfield3d(self, *args: object) -> list[list[float]]:
         self.farfield_args = args
-        return [[1.0, 2.0], [3.0, 0.5]]
+        return [[1.0, float("nan")], [3.0, 0.5]]
 
     def close(self) -> None:
         pass

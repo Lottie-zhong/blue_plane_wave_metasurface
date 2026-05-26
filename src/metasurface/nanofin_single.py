@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import cmath
+import math
 from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType
@@ -294,7 +295,11 @@ def _extract_single_nanofin_results(fdtd: object, config: NanofinSingleConfig) -
     transmission = _safe_float(fdtd.transmission("T"))
     phase_rad = _extract_center_phase_rad(fdtd, "phase_monitor", config.target.incident_polarization)
     farfield = _project_farfield_3d(fdtd, "T", config)
-    farfield_values = [float(value) for value in _flatten_values(farfield)]
+    farfield_values = [
+        float(value)
+        for value in _flatten_values(farfield)
+        if math.isfinite(float(value))
+    ]
     farfield_peak = max(farfield_values) if farfield_values else ""
     farfield_shape = "x".join(str(size) for size in _shape_of(farfield))
     return transmission, phase_rad, farfield_peak, farfield_shape
