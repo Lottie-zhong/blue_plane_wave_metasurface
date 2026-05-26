@@ -302,9 +302,8 @@ def _extract_single_nanofin_results(fdtd: object, config: NanofinSingleConfig) -
 
 
 def _extract_center_phase_rad(fdtd: object, monitor_name: str, polarization: str) -> float:
-    result = fdtd.getresult(monitor_name, "E")
     key = "Ex" if _polarization_angle_deg(polarization) == 0 else "Ey"
-    field = _squeeze(result[key])
+    field = _squeeze(fdtd.getdata(monitor_name, key))
     center_value = _center_value(field)
     return float(cmath.phase(center_value))
 

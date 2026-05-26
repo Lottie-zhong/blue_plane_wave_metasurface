@@ -167,8 +167,12 @@ class _FakeFDTD:
     def transmission(self, _name: str) -> float:
         return 0.75
 
-    def getresult(self, _name: str, _result: str) -> dict[str, object]:
-        return {"Ex": [[1 + 0j]], "Ey": [[0 + 1j]]}
+    def getdata(self, _name: str, data_name: str) -> object:
+        if data_name == "Ex":
+            return [[1 + 0j]]
+        if data_name == "Ey":
+            return [[0 + 1j]]
+        raise KeyError(data_name)
 
     def farfield3d(self, *args: object) -> list[list[float]]:
         self.farfield_args = args
