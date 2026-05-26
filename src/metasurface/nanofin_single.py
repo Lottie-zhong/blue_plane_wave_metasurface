@@ -274,7 +274,7 @@ def _apply_farfield_settings(fdtd: object, config: NanofinSingleConfig) -> None:
 def _project_farfield_3d(fdtd: object, monitor_name: str, config: NanofinSingleConfig) -> object:
     settings = config.far_field
     illumination = 1 if settings.illumination.lower() == "gaussian spot" else 2
-    index = 0 if settings.material_index.lower() == "auto" else float(settings.material_index)
+    index = 1 if settings.material_index.lower() == "auto" else float(settings.material_index)
     direction = 1 if settings.projection_direction.lower() == "auto" else int(settings.projection_direction)
 
     fdtd.eval(f"farfieldfilter({settings.far_field_filter});")
