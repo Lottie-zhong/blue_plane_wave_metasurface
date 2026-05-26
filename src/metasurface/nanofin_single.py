@@ -212,6 +212,8 @@ def _build_single_nanofin_model(fdtd: object, config: NanofinSingleConfig) -> No
     fdtd.set("y span", period)
     fdtd.set("z", monitor_z)
 
+    _apply_farfield_settings(fdtd, config)
+
 
 def _polarization_angle_deg(polarization: str) -> float:
     normalized = polarization.lower()
@@ -228,6 +230,19 @@ def _set_nanofin_material(fdtd: object, config: NanofinSingleConfig) -> None:
         fdtd.set("index", config.material.metasurface_index)
         return
     fdtd.set("material", config.material.metasurface)
+
+
+def _apply_farfield_settings(fdtd: object, config: NanofinSingleConfig) -> None:
+    settings = config.far_field
+    fdtd.eval(f'farfieldsettings("far field filter",{settings.far_field_filter});')
+    fdtd.eval(
+        'farfieldsettings("override near field mesh",'
+        f'{1 if settings.override_near_field_mesh else 0});'
+    )
+    fdtd.eval(
+        'farfieldsettings("near field samples per wavelength",'
+        f'{settings.near_field_samples_per_wavelength});'
+    )
 
 
 def _extract_center_phase_rad(fdtd: object, monitor_name: str, polarization: str) -> float:

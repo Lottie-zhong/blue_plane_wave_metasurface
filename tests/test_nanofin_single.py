@@ -31,6 +31,13 @@ def test_load_nanofin_single_config() -> None:
     assert config.geometry.length_nm == 160
     assert config.geometry.width_nm == 80
     assert config.geometry.height_nm == 350
+    assert config.far_field.projection_direction == "auto"
+    assert config.far_field.material_index == "auto"
+    assert config.far_field.far_field_filter == 1
+    assert config.far_field.resolution_2d == 1001
+    assert config.far_field.resolution_3d == 1001
+    assert config.far_field.assume_structure_is_periodic is False
+    assert config.far_field.override_near_field_mesh is False
 
 
 def test_nanofin_single_dry_run_does_not_import_lumapi(tmp_path: Path) -> None:
@@ -72,6 +79,9 @@ def test_nanofin_setup_only_saves_model_without_run(tmp_path: Path) -> None:
     assert "solver was not run" in str(row["note"])
     assert lumapi.fdtd.run_called is False
     assert lumapi.fdtd.saved_path == str(fsp_output)
+    assert 'farfieldsettings("far field filter",1);' in lumapi.fdtd.eval_commands
+    assert 'farfieldsettings("override near field mesh",0);' in lumapi.fdtd.eval_commands
+    assert 'farfieldsettings("near field samples per wavelength",4);' in lumapi.fdtd.eval_commands
 
 
 class _FakeLumapi:
@@ -88,6 +98,7 @@ class _FakeFDTD:
         self.hide = False
         self.run_called = False
         self.saved_path = ""
+        self.eval_commands: list[str] = []
 
     def switchtolayout(self) -> None:
         pass
@@ -112,6 +123,9 @@ class _FakeFDTD:
 
     def set(self, _name: str, _value: object) -> None:
         pass
+
+    def eval(self, command: str) -> None:
+        self.eval_commands.append(command)
 
     def save(self, path: str) -> None:
         self.saved_path = path

@@ -46,6 +46,19 @@ class NanofinGeometryConfig:
 
 
 @dataclass(frozen=True)
+class FarFieldConfig:
+    projection_direction: str
+    material_index: str
+    far_field_filter: int
+    resolution_2d: int
+    resolution_3d: int
+    assume_structure_is_periodic: bool
+    illumination: str
+    override_near_field_mesh: bool
+    near_field_samples_per_wavelength: int
+
+
+@dataclass(frozen=True)
 class PhaseDesignConfig:
     method: str
     phase_step_rad: float
@@ -90,6 +103,7 @@ class NanofinSingleConfig:
     target: TargetConfig
     material: MaterialConfig
     geometry: NanofinGeometryConfig
+    far_field: FarFieldConfig
     output: OutputConfig
 
 
@@ -113,6 +127,7 @@ def load_nanofin_single_config(path: Union[str, Path]) -> NanofinSingleConfig:
         target=TargetConfig(**_required_mapping(data, "target")),
         material=MaterialConfig(**_required_mapping(data, "material")),
         geometry=NanofinGeometryConfig(**_required_mapping(data, "geometry")),
+        far_field=FarFieldConfig(**_required_mapping(data, "far_field")),
         output=OutputConfig(result_dir=Path(_required_mapping(data, "output")["result_dir"])),
     )
 
