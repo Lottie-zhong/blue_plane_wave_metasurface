@@ -1,0 +1,25 @@
+project:
+  name: blue_plane_wave_metasurface
+  stage: p1_single_nanofin
+
+target:
+  wavelength_nm: 450
+  incident_wave: plane_wave
+  incident_polarization: x
+  output_polarization: x
+  deflection_angle_deg: 0
+  target_order: zero
+
+material:
+  metasurface: TiO2
+  metasurface_index: 2.5
+
+geometry:
+  period_nm: 220
+  length_nm: 160
+  width_nm: 80
+  height_nm: 350
+  rotation_deg: 0
+
+output:
+  result_dir: outputs/nanofin_single

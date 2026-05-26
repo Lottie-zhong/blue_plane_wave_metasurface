@@ -26,6 +26,7 @@ class TargetConfig:
 @dataclass(frozen=True)
 class MaterialConfig:
     metasurface: str
+    metasurface_index: float | None = None
 
 
 @dataclass(frozen=True)
@@ -33,6 +34,15 @@ class GeometryConfig:
     supercell_atoms: int
     atom_period_nm: float
     supercell_period_um: float
+
+
+@dataclass(frozen=True)
+class NanofinGeometryConfig:
+    period_nm: float
+    length_nm: float
+    width_nm: float
+    height_nm: float
+    rotation_deg: float
 
 
 @dataclass(frozen=True)
@@ -74,6 +84,15 @@ class PlaneWaveSweepConfig:
     output: OutputConfig
 
 
+@dataclass(frozen=True)
+class NanofinSingleConfig:
+    project: ProjectConfig
+    target: TargetConfig
+    material: MaterialConfig
+    geometry: NanofinGeometryConfig
+    output: OutputConfig
+
+
 def load_sweep_config(path: Union[str, Path]) -> PlaneWaveSweepConfig:
     data = _read_yaml_mapping(path)
     return PlaneWaveSweepConfig(
@@ -83,6 +102,17 @@ def load_sweep_config(path: Union[str, Path]) -> PlaneWaveSweepConfig:
         geometry=GeometryConfig(**_required_mapping(data, "geometry")),
         phase_design=PhaseDesignConfig(**_required_mapping(data, "phase_design")),
         thickness_sweep=ThicknessSweepConfig(**_required_mapping(data, "thickness_sweep")),
+        output=OutputConfig(result_dir=Path(_required_mapping(data, "output")["result_dir"])),
+    )
+
+
+def load_nanofin_single_config(path: Union[str, Path]) -> NanofinSingleConfig:
+    data = _read_yaml_mapping(path)
+    return NanofinSingleConfig(
+        project=ProjectConfig(**_required_mapping(data, "project")),
+        target=TargetConfig(**_required_mapping(data, "target")),
+        material=MaterialConfig(**_required_mapping(data, "material")),
+        geometry=NanofinGeometryConfig(**_required_mapping(data, "geometry")),
         output=OutputConfig(result_dir=Path(_required_mapping(data, "output")["result_dir"])),
     )
 
