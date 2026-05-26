@@ -79,6 +79,7 @@ def test_nanofin_setup_only_saves_model_without_run(tmp_path: Path) -> None:
     assert "solver was not run" in str(row["note"])
     assert lumapi.fdtd.run_called is False
     assert lumapi.fdtd.saved_path == str(fsp_output)
+    assert "farfieldfilter(1);" in lumapi.fdtd.eval_commands
     assert 'farfieldsettings("far field filter",1);' in lumapi.fdtd.eval_commands
     assert 'farfieldsettings("override near field mesh",0);' in lumapi.fdtd.eval_commands
     assert 'farfieldsettings("near field samples per wavelength",4);' in lumapi.fdtd.eval_commands

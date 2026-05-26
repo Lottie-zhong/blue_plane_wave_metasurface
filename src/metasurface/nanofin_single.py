@@ -234,6 +234,7 @@ def _set_nanofin_material(fdtd: object, config: NanofinSingleConfig) -> None:
 
 def _apply_farfield_settings(fdtd: object, config: NanofinSingleConfig) -> None:
     settings = config.far_field
+    fdtd.eval(f"farfieldfilter({settings.far_field_filter});")
     fdtd.eval(f'farfieldsettings("far field filter",{settings.far_field_filter});')
     fdtd.eval(
         'farfieldsettings("override near field mesh",'
@@ -242,6 +243,27 @@ def _apply_farfield_settings(fdtd: object, config: NanofinSingleConfig) -> None:
     fdtd.eval(
         'farfieldsettings("near field samples per wavelength",'
         f'{settings.near_field_samples_per_wavelength});'
+    )
+
+
+def _project_farfield_3d(fdtd: object, monitor_name: str, config: NanofinSingleConfig) -> object:
+    settings = config.far_field
+    illumination = 1 if settings.illumination.lower() == "gaussian spot" else 2
+    index = 0 if settings.material_index.lower() == "auto" else float(settings.material_index)
+    direction = 0 if settings.projection_direction.lower() == "auto" else int(settings.projection_direction)
+    periodic = 1 if settings.assume_structure_is_periodic else 0
+
+    fdtd.eval(f"farfieldfilter({settings.far_field_filter});")
+    return fdtd.farfield3d(
+        monitor_name,
+        1,
+        settings.resolution_3d,
+        settings.resolution_3d,
+        illumination,
+        periodic,
+        periodic,
+        index,
+        direction,
     )
 
 
