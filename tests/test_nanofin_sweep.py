@@ -13,6 +13,7 @@ if str(SRC_DIR) not in sys.path:
 from metasurface.nanofin_sweep import (
     XY_SWEEP_PLAN_FIELDS,
     build_xy_sweep_plan_rows,
+    filter_xy_sweep_rows,
     load_xy_sweep_config,
     write_xy_case_configs,
     write_xy_sweep_plan,
@@ -53,3 +54,24 @@ def test_write_xy_sweep_plan_and_case_configs(tmp_path: Path) -> None:
     assert "incident_polarization: y" in (tmp_path / "case_y.yaml").read_text(encoding="utf-8")
     assert "length_nm: 120" in (tmp_path / "case_x.yaml").read_text(encoding="utf-8")
     assert "width_nm: 60" in (tmp_path / "case_y.yaml").read_text(encoding="utf-8")
+
+
+def test_filter_xy_sweep_rows_by_case_id() -> None:
+    config = load_xy_sweep_config(REPO_ROOT / "configs" / "nanofin_xy_sweep.yaml")
+    rows = build_xy_sweep_plan_rows(config)
+
+    selected = filter_xy_sweep_rows(rows, case_ids=["L160_W80_H350_R0", "L200_W120_H350_R0"])
+
+    assert [row["case_id"] for row in selected] == ["L160_W80_H350_R0", "L200_W120_H350_R0"]
+
+
+def test_filter_xy_sweep_rows_rejects_missing_case_id() -> None:
+    config = load_xy_sweep_config(REPO_ROOT / "configs" / "nanofin_xy_sweep.yaml")
+    rows = build_xy_sweep_plan_rows(config)
+
+    try:
+        filter_xy_sweep_rows(rows, case_ids=["missing"])
+    except ValueError as exc:
+        assert "missing" in str(exc)
+    else:
+        raise AssertionError("Expected missing case_id to raise ValueError")

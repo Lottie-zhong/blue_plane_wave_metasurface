@@ -104,6 +104,24 @@ def write_xy_case_configs(config: NanofinXYSweepConfig, rows: list[dict[str, obj
         _write_case_config(y_base, Path(row["y_config"]), length_nm, width_nm, height_nm, rotation_deg)
 
 
+def filter_xy_sweep_rows(
+    rows: list[dict[str, object]],
+    case_ids: list[str] | None = None,
+    include_all: bool = False,
+) -> list[dict[str, object]]:
+    if include_all:
+        return rows
+    if not case_ids:
+        raise ValueError("Provide at least one case_id or use include_all=True")
+    requested = set(case_ids)
+    selected = [row for row in rows if str(row["case_id"]) in requested]
+    found = {str(row["case_id"]) for row in selected}
+    missing = sorted(requested - found)
+    if missing:
+        raise ValueError(f"Unknown case_id(s): {', '.join(missing)}")
+    return selected
+
+
 def _write_case_config(
     base_config: dict[str, Any],
     output_path: Path,
