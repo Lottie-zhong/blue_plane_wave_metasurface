@@ -1,0 +1,19 @@
+project:
+  name: blue_plane_wave_metasurface
+  stage: p3_pb_supercell_N6_refine_LW_H450
+
+base_configs:
+  lcp: configs/pb_supercell_N6_L205_W70_H450.yaml
+  rcp: configs/pb_supercell_N6_L205_W70_H450_rcp.yaml
+
+sweep:
+  atoms: 6
+  atom_period_nm: 293.3333333333333
+  rotation_step_deg: 30
+  length_nm: [200, 205, 210]
+  width_nm: [65, 70, 75]
+  height_nm: [450]
+  rotation_start_deg: [0]
+
+output:
+  result_dir: outputs/pb_supercell_N6_refine_LW_H450
