@@ -1,0 +1,16 @@
+project:
+  name: blue_plane_wave_metasurface
+  stage: p2_nanofin_xy_refine_h450
+
+base_configs:
+  x: configs/nanofin_single.yaml
+  y: configs/nanofin_single_y.yaml
+
+sweep:
+  length_nm: [190, 200, 205, 210]
+  width_nm: [50, 60, 70, 80, 90]
+  height_nm: [450]
+  rotation_deg: [0]
+
+output:
+  result_dir: outputs/nanofin_xy_refine_h450
