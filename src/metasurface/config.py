@@ -46,6 +46,17 @@ class NanofinGeometryConfig:
 
 
 @dataclass(frozen=True)
+class PBSupercellGeometryConfig:
+    atom_period_nm: float
+    atoms: int
+    length_nm: float
+    width_nm: float
+    height_nm: float
+    rotation_start_deg: float
+    rotation_step_deg: float
+
+
+@dataclass(frozen=True)
 class FarFieldConfig:
     projection_direction: str
     material_index: str
@@ -107,6 +118,16 @@ class NanofinSingleConfig:
     output: OutputConfig
 
 
+@dataclass(frozen=True)
+class PBSupercellConfig:
+    project: ProjectConfig
+    target: TargetConfig
+    material: MaterialConfig
+    geometry: PBSupercellGeometryConfig
+    far_field: FarFieldConfig
+    output: OutputConfig
+
+
 def load_sweep_config(path: Union[str, Path]) -> PlaneWaveSweepConfig:
     data = _read_yaml_mapping(path)
     return PlaneWaveSweepConfig(
@@ -127,6 +148,18 @@ def load_nanofin_single_config(path: Union[str, Path]) -> NanofinSingleConfig:
         target=TargetConfig(**_required_mapping(data, "target")),
         material=MaterialConfig(**_required_mapping(data, "material")),
         geometry=NanofinGeometryConfig(**_required_mapping(data, "geometry")),
+        far_field=FarFieldConfig(**_required_mapping(data, "far_field")),
+        output=OutputConfig(result_dir=Path(_required_mapping(data, "output")["result_dir"])),
+    )
+
+
+def load_pb_supercell_config(path: Union[str, Path]) -> PBSupercellConfig:
+    data = _read_yaml_mapping(path)
+    return PBSupercellConfig(
+        project=ProjectConfig(**_required_mapping(data, "project")),
+        target=TargetConfig(**_required_mapping(data, "target")),
+        material=MaterialConfig(**_required_mapping(data, "material")),
+        geometry=PBSupercellGeometryConfig(**_required_mapping(data, "geometry")),
         far_field=FarFieldConfig(**_required_mapping(data, "far_field")),
         output=OutputConfig(result_dir=Path(_required_mapping(data, "output")["result_dir"])),
     )
