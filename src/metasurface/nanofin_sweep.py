@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import math
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Union
@@ -22,6 +23,22 @@ XY_SWEEP_PLAN_FIELDS = [
     "y_summary",
     "phase_delay_summary",
     "status",
+    "note",
+]
+
+
+XY_SWEEP_RESULT_FIELDS = [
+    "case_id",
+    "length_nm",
+    "width_nm",
+    "height_nm",
+    "rotation_deg",
+    "phase_delay_rad",
+    "phase_delay_error_to_pi",
+    "transmission_x",
+    "transmission_y",
+    "status",
+    "phase_delay_summary",
     "note",
 ]
 
@@ -104,6 +121,49 @@ def write_xy_case_configs(config: NanofinXYSweepConfig, rows: list[dict[str, obj
         _write_case_config(y_base, Path(row["y_config"]), length_nm, width_nm, height_nm, rotation_deg)
 
 
+def collect_xy_sweep_result_rows(rows: list[dict[str, object]]) -> list[dict[str, object]]:
+    result_rows: list[dict[str, object]] = []
+    for row in rows:
+        phase_delay_path = Path(row["phase_delay_summary"])
+        if not phase_delay_path.exists():
+            result_rows.append(_missing_result_row(row, "phase delay summary missing"))
+            continue
+        try:
+            phase_delay = _read_csv_single_row(phase_delay_path)
+            status = phase_delay.get("status", "")
+            note = phase_delay.get("note", "")
+            result_rows.append(
+                {
+                    "case_id": row["case_id"],
+                    "length_nm": row["length_nm"],
+                    "width_nm": row["width_nm"],
+                    "height_nm": row["height_nm"],
+                    "rotation_deg": row["rotation_deg"],
+                    "phase_delay_rad": phase_delay.get("phase_delay_rad", ""),
+                    "phase_delay_error_to_pi": phase_delay.get("phase_delay_error_to_pi", ""),
+                    "transmission_x": phase_delay.get("transmission_x", ""),
+                    "transmission_y": phase_delay.get("transmission_y", ""),
+                    "status": status,
+                    "phase_delay_summary": phase_delay_path,
+                    "note": note,
+                }
+            )
+        except (OSError, ValueError) as exc:
+            result_rows.append(_missing_result_row(row, f"{type(exc).__name__}: {exc}"))
+
+    return sorted(result_rows, key=_result_sort_key)
+
+
+def write_xy_sweep_results(rows: list[dict[str, object]], output_path: Union[str, Path]) -> Path:
+    path = Path(output_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=XY_SWEEP_RESULT_FIELDS)
+        writer.writeheader()
+        writer.writerows(rows)
+    return path
+
+
 def filter_xy_sweep_rows(
     rows: list[dict[str, object]],
     case_ids: list[str] | None = None,
@@ -120,6 +180,40 @@ def filter_xy_sweep_rows(
     if missing:
         raise ValueError(f"Unknown case_id(s): {', '.join(missing)}")
     return selected
+
+
+def _missing_result_row(row: dict[str, object], note: str) -> dict[str, object]:
+    return {
+        "case_id": row["case_id"],
+        "length_nm": row["length_nm"],
+        "width_nm": row["width_nm"],
+        "height_nm": row["height_nm"],
+        "rotation_deg": row["rotation_deg"],
+        "phase_delay_rad": "",
+        "phase_delay_error_to_pi": "",
+        "transmission_x": "",
+        "transmission_y": "",
+        "status": "missing",
+        "phase_delay_summary": row["phase_delay_summary"],
+        "note": note,
+    }
+
+
+def _read_csv_single_row(path: Path) -> dict[str, str]:
+    with path.open("r", newline="", encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle))
+    if len(rows) != 1:
+        raise ValueError(f"Expected exactly one row in {path}, got {len(rows)}")
+    return rows[0]
+
+
+def _result_sort_key(row: dict[str, object]) -> tuple[int, float, str]:
+    if row["status"] != "ok":
+        return (1, math.inf, str(row["case_id"]))
+    try:
+        return (0, float(row["phase_delay_error_to_pi"]), str(row["case_id"]))
+    except (TypeError, ValueError):
+        return (1, math.inf, str(row["case_id"]))
 
 
 def _write_case_config(
