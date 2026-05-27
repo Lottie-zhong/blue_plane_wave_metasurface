@@ -96,7 +96,9 @@ def test_pb_supercell_extracts_plus_one_total_order_efficiency(tmp_path: Path) -
     assert row["status"] == "ok"
     assert row["transmission"] == 0.8
     assert row["order_efficiency_total"] == 0.4
-    assert "RCP/LCP order estimates are placeholders" in str(row["note"])
+    assert math.isclose(row["order_efficiency_rcp_estimate"], 0.4)
+    assert row["order_efficiency_lcp_estimate"] == 0.0
+    assert "gratingpolar Etheta +/- i*Ephi" in str(row["note"])
 
 
 class _FakeLumapi:
@@ -173,6 +175,13 @@ class _FakeFDTD:
 
     def gratingm(self, _name: str) -> list[int]:
         return 0
+
+    def gratingpolar(self, _name: str) -> list[list[list[complex]]]:
+        return [
+            [[0j, 0j, 0j]],
+            [[0j, 0.5 + 0j, -0.5j]],
+            [[0j, 0j, 0j]],
+        ]
 
     def close(self) -> None:
         pass

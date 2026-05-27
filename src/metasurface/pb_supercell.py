@@ -136,8 +136,12 @@ def run_pb_supercell_lumerical(
                 fdtd.run()
             transmission = _safe_float(fdtd.transmission("T"))
             order_efficiency_total = _extract_order_efficiency_total(fdtd, "T", config, transmission)
+            (
+                order_efficiency_rcp_estimate,
+                order_efficiency_lcp_estimate,
+            ) = _extract_circular_order_efficiency_estimates(fdtd, "T", config, transmission)
             status = "ok"
-            note = "RCP/LCP order estimates are placeholders until gratingpolar convention is validated"
+            note = "RCP/LCP estimates use gratingpolar Etheta +/- i*Ephi spherical-basis convention"
     except Exception as exc:  # Lumerical exceptions vary by installation.
         note = f"{type(exc).__name__}: {exc}"
     finally:
@@ -269,6 +273,37 @@ def _extract_order_efficiency_total(
     return ""
 
 
+def _extract_circular_order_efficiency_estimates(
+    fdtd: object,
+    monitor_name: str,
+    config: PBSupercellConfig,
+    transmission: object,
+) -> tuple[object, object]:
+    target_index = _find_target_order_index(fdtd, monitor_name, config)
+    if target_index is None:
+        return "", ""
+    order_vectors = _flatten_order_vectors(fdtd.gratingpolar(monitor_name))
+    if target_index >= len(order_vectors):
+        return "", ""
+    _, e_theta, e_phi = order_vectors[target_index]
+    e_rcp = (complex(e_theta) + 1j * complex(e_phi)) / math.sqrt(2)
+    e_lcp = (complex(e_theta) - 1j * complex(e_phi)) / math.sqrt(2)
+    return abs(e_rcp) ** 2 * float(transmission), abs(e_lcp) ** 2 * float(transmission)
+
+
+def _find_target_order_index(fdtd: object, monitor_name: str, config: PBSupercellConfig) -> int | None:
+    target_n = int(str(config.target.target_order).replace("+", ""))
+    target_m = 0
+    n_values = _flatten_values(fdtd.gratingn(monitor_name))
+    m_values = _flatten_values(fdtd.gratingm(monitor_name))
+    if len(m_values) == 1 and len(n_values) > 1:
+        m_values = m_values * len(n_values)
+    for index, (n_value, m_value) in enumerate(zip(n_values, m_values)):
+        if int(round(float(n_value))) == target_n and int(round(float(m_value))) == target_m:
+            return index
+    return None
+
+
 def _set_material(fdtd: object, config: PBSupercellConfig) -> None:
     if config.material.metasurface_index is not None:
         fdtd.set("material", "<Object defined dielectric>")
@@ -352,6 +387,19 @@ def _flatten_values(value: object) -> list[object]:
             values.extend(_flatten_values(item))
         return values
     return [value]
+
+
+def _flatten_order_vectors(value: object) -> list[tuple[object, object, object]]:
+    if hasattr(value, "reshape"):
+        return [tuple(row) for row in value.reshape(-1, 3)]
+    if isinstance(value, (list, tuple)):
+        if len(value) == 3 and not isinstance(value[0], (list, tuple)):
+            return [(value[0], value[1], value[2])]
+        vectors: list[tuple[object, object, object]] = []
+        for item in value:
+            vectors.extend(_flatten_order_vectors(item))
+        return vectors
+    return []
 
 
 def write_pb_supercell_summary(rows: list[dict[str, object]], output_path: Union[str, Path]) -> Path:
