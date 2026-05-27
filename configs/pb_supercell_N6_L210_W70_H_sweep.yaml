@@ -1,0 +1,19 @@
+project:
+  name: blue_plane_wave_metasurface
+  stage: p3_pb_supercell_N6_L210_W70_height_tolerance
+
+base_configs:
+  lcp: configs/pb_supercell_N6_L210_W70_H450.yaml
+  rcp: configs/pb_supercell_N6_L210_W70_H450_rcp.yaml
+
+sweep:
+  atoms: 6
+  atom_period_nm: 293.3333333333333
+  rotation_step_deg: 30
+  length_nm: [210]
+  width_nm: [70]
+  height_nm: [425, 440, 450, 460, 475]
+  rotation_start_deg: [0]
+
+output:
+  result_dir: outputs/pb_supercell_N6_L210_W70_H_sweep
