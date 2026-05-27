@@ -13,9 +13,12 @@ if str(SRC_DIR) not in sys.path:
 
 from metasurface.config import RuntimeConfig, load_pb_supercell_config
 from metasurface.pb_supercell import (
+    PB_ORDER_SPECTRUM_FIELDS,
     PB_SUPERCELL_FIELDS,
     PBSupercellRunner,
+    extract_pb_order_spectrum,
     run_pb_supercell_lumerical,
+    write_pb_order_spectrum,
     write_pb_supercell_summary,
 )
 
@@ -80,6 +83,25 @@ def test_pb_supercell_setup_only_builds_rotated_atoms_and_circular_sources(tmp_p
     assert "farfieldfilter(1);" in lumapi.fdtd.eval_commands
 
 
+def test_pb_supercell_rcp_control_uses_negative_y_phase(tmp_path: Path) -> None:
+    config = load_pb_supercell_config(REPO_ROOT / "configs" / "pb_supercell_L205_W70_H450_rcp.yaml")
+    runtime = RuntimeConfig(mode="test", enable_lumerical=True, lumapi_python_api_dir="", hide_gui=True)
+    lumapi = _FakeLumapi()
+
+    row = run_pb_supercell_lumerical(
+        config=config,
+        runtime=runtime,
+        lumapi=lumapi,
+        setup_only=True,
+        fsp_output=tmp_path / "pb_supercell_rcp.fsp",
+    )
+
+    assert row["status"] == "setup_only"
+    assert config.target.incident_polarization == "RCP"
+    assert config.target.target_order == "-1"
+    assert lumapi.fdtd.source_phases == [0, -90]
+
+
 def test_pb_supercell_extracts_plus_one_total_order_efficiency(tmp_path: Path) -> None:
     config = load_pb_supercell_config(REPO_ROOT / "configs" / "pb_supercell_L205_W70_H450.yaml")
     runtime = RuntimeConfig(mode="test", enable_lumerical=True, lumapi_python_api_dir="", hide_gui=True)
@@ -99,6 +121,26 @@ def test_pb_supercell_extracts_plus_one_total_order_efficiency(tmp_path: Path) -
     assert math.isclose(row["order_efficiency_rcp_estimate"], 0.4)
     assert row["order_efficiency_lcp_estimate"] == 0.0
     assert "gratingpolar Etheta +/- i*Ephi" in str(row["note"])
+
+
+def test_extract_pb_order_spectrum_writes_all_orders(tmp_path: Path) -> None:
+    config = load_pb_supercell_config(REPO_ROOT / "configs" / "pb_supercell_L205_W70_H450.yaml")
+    lumapi = _FakeLumapi()
+
+    rows = extract_pb_order_spectrum(lumapi.fdtd, "T", config, transmission=0.8)
+    output_path = write_pb_order_spectrum(rows, tmp_path / "pb_order_spectrum.csv")
+
+    with output_path.open("r", newline="", encoding="utf-8") as handle:
+        reader = csv.DictReader(handle)
+        loaded_rows = list(reader)
+
+    assert reader.fieldnames == PB_ORDER_SPECTRUM_FIELDS
+    assert [row["order_n"] for row in rows] == [-1, 1, 0]
+    assert math.isclose(rows[1]["angle_deg"], math.degrees(math.asin(450 / 1760)))
+    assert math.isclose(rows[1]["order_efficiency_total"], 0.4)
+    assert math.isclose(rows[1]["order_efficiency_rcp_estimate"], 0.4)
+    assert rows[1]["order_efficiency_lcp_estimate"] == 0.0
+    assert loaded_rows[1]["order_n"] == "1"
 
 
 class _FakeLumapi:

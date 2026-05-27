@@ -31,6 +31,23 @@ PB_SUPERCELL_FIELDS = [
 ]
 
 
+PB_ORDER_SPECTRUM_FIELDS = [
+    "wavelength_nm",
+    "incident_polarization",
+    "output_polarization",
+    "order_n",
+    "order_m",
+    "angle_deg",
+    "transmission",
+    "order_fraction",
+    "order_efficiency_total",
+    "order_efficiency_rcp_estimate",
+    "order_efficiency_lcp_estimate",
+    "status",
+    "note",
+]
+
+
 @dataclass(frozen=True)
 class PBSupercellRunner:
     config: PBSupercellConfig
@@ -273,6 +290,78 @@ def _extract_order_efficiency_total(
     return ""
 
 
+def collect_pb_order_spectrum_from_fsp(
+    config: PBSupercellConfig,
+    runtime_path: Union[str, Path],
+    fsp_path: Union[str, Path],
+) -> list[dict[str, object]]:
+    runtime = load_runtime_config(runtime_path)
+    if not runtime.enable_lumerical:
+        raise RuntimeError("runtime.enable_lumerical is false; update runtime.yaml")
+
+    lumapi = import_lumapi(runtime)
+    fdtd = None
+    try:
+        fdtd = lumapi.FDTD(hide=runtime.hide_gui)
+        fdtd.load(str(fsp_path))
+        fdtd.run()
+        transmission = _safe_float(fdtd.transmission("T"))
+        return extract_pb_order_spectrum(fdtd, "T", config, transmission)
+    finally:
+        if fdtd is not None:
+            try:
+                fdtd.close()
+            except Exception:
+                pass
+
+
+def extract_pb_order_spectrum(
+    fdtd: object,
+    monitor_name: str,
+    config: PBSupercellConfig,
+    transmission: object,
+) -> list[dict[str, object]]:
+    n_values = _flatten_values(fdtd.gratingn(monitor_name))
+    m_values = _flatten_values(fdtd.gratingm(monitor_name))
+    if len(m_values) == 1 and len(n_values) > 1:
+        m_values = m_values * len(n_values)
+    fractions = _flatten_values(fdtd.grating(monitor_name))
+    order_vectors = _flatten_order_vectors(fdtd.gratingpolar(monitor_name))
+
+    rows: list[dict[str, object]] = []
+    for index, n_value in enumerate(n_values):
+        m_value = m_values[index] if index < len(m_values) else ""
+        fraction = float(fractions[index]) if index < len(fractions) else ""
+        total = fraction * float(transmission) if fraction != "" else ""
+        rcp: object = ""
+        lcp: object = ""
+        if index < len(order_vectors):
+            _, e_theta, e_phi = order_vectors[index]
+            e_rcp = (complex(e_theta) + 1j * complex(e_phi)) / math.sqrt(2)
+            e_lcp = (complex(e_theta) - 1j * complex(e_phi)) / math.sqrt(2)
+            rcp = abs(e_rcp) ** 2 * float(transmission)
+            lcp = abs(e_lcp) ** 2 * float(transmission)
+
+        rows.append(
+            {
+                "wavelength_nm": config.target.wavelength_nm,
+                "incident_polarization": config.target.incident_polarization,
+                "output_polarization": config.target.output_polarization,
+                "order_n": int(round(float(n_value))),
+                "order_m": int(round(float(m_value))) if m_value != "" else "",
+                "angle_deg": _order_angle_deg(config, float(n_value)),
+                "transmission": transmission,
+                "order_fraction": fraction,
+                "order_efficiency_total": total,
+                "order_efficiency_rcp_estimate": rcp,
+                "order_efficiency_lcp_estimate": lcp,
+                "status": "ok",
+                "note": "RCP/LCP estimates use gratingpolar Etheta +/- i*Ephi spherical-basis convention",
+            }
+        )
+    return rows
+
+
 def _extract_circular_order_efficiency_estimates(
     fdtd: object,
     monitor_name: str,
@@ -364,6 +453,13 @@ def _target_angle_deg(config: PBSupercellConfig) -> object:
     return math.degrees(math.asin(ratio))
 
 
+def _order_angle_deg(config: PBSupercellConfig, order_n: float) -> object:
+    ratio = order_n * config.target.wavelength_nm / (config.geometry.atoms * config.geometry.atom_period_nm)
+    if abs(ratio) > 1:
+        return ""
+    return math.degrees(math.asin(ratio))
+
+
 def _safe_float(value: object) -> object:
     try:
         if hasattr(value, "item"):
@@ -407,6 +503,16 @@ def write_pb_supercell_summary(rows: list[dict[str, object]], output_path: Union
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=PB_SUPERCELL_FIELDS)
+        writer.writeheader()
+        writer.writerows(rows)
+    return path
+
+
+def write_pb_order_spectrum(rows: list[dict[str, object]], output_path: Union[str, Path]) -> Path:
+    path = Path(output_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=PB_ORDER_SPECTRUM_FIELDS)
         writer.writeheader()
         writer.writerows(rows)
     return path
