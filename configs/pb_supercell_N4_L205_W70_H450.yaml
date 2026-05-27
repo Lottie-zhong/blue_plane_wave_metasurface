@@ -1,0 +1,38 @@
+project:
+  name: blue_plane_wave_metasurface
+  stage: p3_pb_supercell_N4_L205_W70_H450
+
+target:
+  wavelength_nm: 450
+  incident_wave: plane_wave
+  incident_polarization: LCP
+  output_polarization: RCP
+  deflection_angle_deg: 15
+  target_order: "+1"
+
+material:
+  metasurface: TiO2
+  metasurface_index: 2.5
+
+geometry:
+  atom_period_nm: 440
+  atoms: 4
+  length_nm: 205
+  width_nm: 70
+  height_nm: 450
+  rotation_start_deg: 0
+  rotation_step_deg: 45
+
+far_field:
+  projection_direction: auto
+  material_index: auto
+  far_field_filter: 1
+  resolution_2d: 1001
+  resolution_3d: 1001
+  assume_structure_is_periodic: false
+  illumination: Gaussian Spot
+  override_near_field_mesh: false
+  near_field_samples_per_wavelength: 4
+
+output:
+  result_dir: outputs/pb_supercell_N4_L205_W70_H450
