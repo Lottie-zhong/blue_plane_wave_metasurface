@@ -1,0 +1,16 @@
+project:
+  name: blue_plane_wave_metasurface
+  stage: p2_nanofin_xy_height_sweep_L200_W80
+
+base_configs:
+  x: configs/nanofin_single.yaml
+  y: configs/nanofin_single_y.yaml
+
+sweep:
+  length_nm: [200]
+  width_nm: [80]
+  height_nm: [250, 275, 300, 325, 350, 375, 400, 425, 450]
+  rotation_deg: [0]
+
+output:
+  result_dir: outputs/nanofin_xy_h_sweep_L200_W80
