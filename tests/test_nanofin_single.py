@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import math
 import sys
 from pathlib import Path
 
@@ -38,6 +39,18 @@ def test_load_nanofin_single_config() -> None:
     assert config.far_field.resolution_3d == 1001
     assert config.far_field.assume_structure_is_periodic is False
     assert config.far_field.override_near_field_mesh is False
+
+
+def test_load_nanofin_single_y_config_keeps_geometry_and_uses_y_polarization() -> None:
+    x_config = load_nanofin_single_config(REPO_ROOT / "configs" / "nanofin_single.yaml")
+    y_config = load_nanofin_single_config(REPO_ROOT / "configs" / "nanofin_single_y.yaml")
+
+    assert y_config.target.incident_polarization == "y"
+    assert y_config.target.output_polarization == "y"
+    assert y_config.geometry == x_config.geometry
+    assert y_config.material == x_config.material
+    assert y_config.far_field == x_config.far_field
+    assert y_config.output.result_dir == Path("outputs/nanofin_single_y")
 
 
 def test_nanofin_single_dry_run_does_not_import_lumapi(tmp_path: Path) -> None:
@@ -110,6 +123,24 @@ def test_nanofin_extract_only_loads_fsp_without_run(tmp_path: Path) -> None:
     assert lumapi.fdtd.farfield_args == ("T", 1, 1001, 1001, 1, 1, 1, 1, 1)
 
 
+def test_nanofin_y_extract_uses_ey(tmp_path: Path) -> None:
+    config = load_nanofin_single_config(REPO_ROOT / "configs" / "nanofin_single_y.yaml")
+    runtime = RuntimeConfig(mode="test", enable_lumerical=True, lumapi_python_api_dir="", hide_gui=True)
+    lumapi = _FakeLumapi()
+
+    row = run_single_nanofin_lumerical(
+        config=config,
+        runtime=runtime,
+        lumapi=lumapi,
+        load_fsp=tmp_path / "solved_single_nanofin_y.fsp",
+        extract_only=True,
+    )
+
+    assert row["status"] == "ok"
+    assert row["phase_rad"] == math.pi / 2
+    assert lumapi.fdtd.getdata_names == ["Ey"]
+
+
 class _FakeLumapi:
     def __init__(self) -> None:
         self.fdtd = _FakeFDTD()
@@ -127,6 +158,7 @@ class _FakeFDTD:
         self.loaded_path = ""
         self.farfield_args: tuple[object, ...] = ()
         self.eval_commands: list[str] = []
+        self.getdata_names: list[str] = []
 
     def switchtolayout(self) -> None:
         pass
@@ -168,6 +200,7 @@ class _FakeFDTD:
         return 0.75
 
     def getdata(self, _name: str, data_name: str) -> object:
+        self.getdata_names.append(data_name)
         if data_name == "Ex":
             return [[1 + 0j]]
         if data_name == "Ey":
