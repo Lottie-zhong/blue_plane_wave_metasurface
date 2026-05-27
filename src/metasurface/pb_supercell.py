@@ -259,7 +259,11 @@ def _extract_order_efficiency_total(
     grating_power = fdtd.grating(monitor_name)
     grating_n = fdtd.gratingn(monitor_name)
     grating_m = fdtd.gratingm(monitor_name)
-    for index, (n_value, m_value) in enumerate(zip(_flatten_values(grating_n), _flatten_values(grating_m))):
+    n_values = _flatten_values(grating_n)
+    m_values = _flatten_values(grating_m)
+    if len(m_values) == 1 and len(n_values) > 1:
+        m_values = m_values * len(n_values)
+    for index, (n_value, m_value) in enumerate(zip(n_values, m_values)):
         if int(round(float(n_value))) == target_n and int(round(float(m_value))) == target_m:
             return float(_flatten_values(grating_power)[index]) * float(transmission)
     return ""

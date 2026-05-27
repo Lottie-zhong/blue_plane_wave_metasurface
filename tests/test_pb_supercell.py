@@ -172,7 +172,7 @@ class _FakeFDTD:
         return [-1, 1, 0]
 
     def gratingm(self, _name: str) -> list[int]:
-        return [0, 0, 0]
+        return 0
 
     def close(self) -> None:
         pass
