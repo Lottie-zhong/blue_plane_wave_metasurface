@@ -41,6 +41,13 @@ APCD_DIMER_RESULT_FIELDS = [
 
 
 @dataclass(frozen=True)
+class APCDGeometryValidation:
+    minimum_gap_nm: float
+    minimum_allowed_gap_nm: float
+    closest_pair: str
+
+
+@dataclass(frozen=True)
 class APCDSingleDimerRunner:
     config: APCDSingleDimerConfig
     dry_run: bool = False
@@ -214,6 +221,8 @@ def _build_apcd_single_dimer_model(
     config: APCDSingleDimerConfig,
     incident_polarization: str,
 ) -> None:
+    validate_apcd_single_dimer_geometry(config)
+
     nm = 1e-9
     geometry = config.geometry
     simulation = config.simulation
@@ -291,6 +300,150 @@ def _add_nanopillar(
     fdtd.set("first axis", "z")
     fdtd.set("rotation 1", pillar.rotation_deg)
     _set_material(fdtd, config.material, is_substrate=False)
+
+
+def validate_apcd_single_dimer_geometry(config: APCDSingleDimerConfig) -> APCDGeometryValidation:
+    geometry = config.geometry
+    pillar_1 = geometry.nanopillar_1
+    pillar_2 = geometry.nanopillar_2
+    polygon_1 = _rotated_rectangle_corners_nm(pillar_1)
+    polygon_2 = _rotated_rectangle_corners_nm(pillar_2)
+
+    direct_gap_nm = _polygon_gap_nm(polygon_1, polygon_2)
+    minimum_gap_nm = direct_gap_nm
+    closest_pair = "nanopillar_1 to nanopillar_2"
+
+    for x_shift in (-geometry.period_x_nm, 0, geometry.period_x_nm):
+        for y_shift in (-geometry.period_y_nm, 0, geometry.period_y_nm):
+            if x_shift == 0 and y_shift == 0:
+                continue
+            shifted_2 = [(x + x_shift, y + y_shift) for x, y in polygon_2]
+            periodic_gap_nm = _polygon_gap_nm(polygon_1, shifted_2)
+            if periodic_gap_nm < minimum_gap_nm:
+                minimum_gap_nm = periodic_gap_nm
+                closest_pair = f"nanopillar_1 to nanopillar_2 periodic image ({x_shift:g}, {y_shift:g}) nm"
+
+    if minimum_gap_nm <= 0:
+        raise ValueError(f"APCD dimer geometry overlaps: {closest_pair}")
+    if minimum_gap_nm < geometry.minimum_gap_nm:
+        raise ValueError(
+            "APCD dimer geometry gap is too small: "
+            f"{minimum_gap_nm:.3g} nm < {geometry.minimum_gap_nm:.3g} nm ({closest_pair})"
+        )
+
+    return APCDGeometryValidation(
+        minimum_gap_nm=minimum_gap_nm,
+        minimum_allowed_gap_nm=geometry.minimum_gap_nm,
+        closest_pair=closest_pair,
+    )
+
+
+def _rotated_rectangle_corners_nm(pillar: APCDNanopillarConfig) -> list[tuple[float, float]]:
+    angle = math.radians(pillar.rotation_deg)
+    cos_angle = math.cos(angle)
+    sin_angle = math.sin(angle)
+    half_length = pillar.length_nm / 2
+    half_width = pillar.width_nm / 2
+    corners = []
+    for local_x, local_y in (
+        (-half_length, -half_width),
+        (half_length, -half_width),
+        (half_length, half_width),
+        (-half_length, half_width),
+    ):
+        corners.append(
+            (
+                pillar.x_nm + local_x * cos_angle - local_y * sin_angle,
+                pillar.y_nm + local_x * sin_angle + local_y * cos_angle,
+            )
+        )
+    return corners
+
+
+def _polygon_gap_nm(polygon_1: list[tuple[float, float]], polygon_2: list[tuple[float, float]]) -> float:
+    if _polygons_overlap(polygon_1, polygon_2):
+        return 0.0
+
+    minimum = math.inf
+    for index_1, point_1 in enumerate(polygon_1):
+        next_1 = polygon_1[(index_1 + 1) % len(polygon_1)]
+        for index_2, point_2 in enumerate(polygon_2):
+            next_2 = polygon_2[(index_2 + 1) % len(polygon_2)]
+            minimum = min(minimum, _segment_distance_nm(point_1, next_1, point_2, next_2))
+    return float(minimum)
+
+
+def _polygons_overlap(polygon_1: list[tuple[float, float]], polygon_2: list[tuple[float, float]]) -> bool:
+    for polygon in (polygon_1, polygon_2):
+        for index, point in enumerate(polygon):
+            next_point = polygon[(index + 1) % len(polygon)]
+            edge = (next_point[0] - point[0], next_point[1] - point[1])
+            axis = (-edge[1], edge[0])
+            axis_length = math.hypot(axis[0], axis[1])
+            normalized_axis = (axis[0] / axis_length, axis[1] / axis_length)
+            projection_1 = [_dot(point_1, normalized_axis) for point_1 in polygon_1]
+            projection_2 = [_dot(point_2, normalized_axis) for point_2 in polygon_2]
+            if max(projection_1) < min(projection_2) or max(projection_2) < min(projection_1):
+                return False
+    return True
+
+
+def _segment_distance_nm(
+    point_1: tuple[float, float],
+    point_2: tuple[float, float],
+    point_3: tuple[float, float],
+    point_4: tuple[float, float],
+) -> float:
+    if _segments_intersect(point_1, point_2, point_3, point_4):
+        return 0.0
+    return min(
+        _point_segment_distance_nm(point_1, point_3, point_4),
+        _point_segment_distance_nm(point_2, point_3, point_4),
+        _point_segment_distance_nm(point_3, point_1, point_2),
+        _point_segment_distance_nm(point_4, point_1, point_2),
+    )
+
+
+def _segments_intersect(
+    point_1: tuple[float, float],
+    point_2: tuple[float, float],
+    point_3: tuple[float, float],
+    point_4: tuple[float, float],
+) -> bool:
+    orientation_1 = _orientation(point_1, point_2, point_3)
+    orientation_2 = _orientation(point_1, point_2, point_4)
+    orientation_3 = _orientation(point_3, point_4, point_1)
+    orientation_4 = _orientation(point_3, point_4, point_2)
+    return orientation_1 * orientation_2 <= 0 and orientation_3 * orientation_4 <= 0
+
+
+def _point_segment_distance_nm(
+    point: tuple[float, float],
+    segment_start: tuple[float, float],
+    segment_end: tuple[float, float],
+) -> float:
+    segment = (segment_end[0] - segment_start[0], segment_end[1] - segment_start[1])
+    segment_length_sq = _dot(segment, segment)
+    if segment_length_sq == 0:
+        return math.hypot(point[0] - segment_start[0], point[1] - segment_start[1])
+    offset = (point[0] - segment_start[0], point[1] - segment_start[1])
+    t = max(0.0, min(1.0, _dot(offset, segment) / segment_length_sq))
+    closest = (segment_start[0] + t * segment[0], segment_start[1] + t * segment[1])
+    return math.hypot(point[0] - closest[0], point[1] - closest[1])
+
+
+def _orientation(
+    point_1: tuple[float, float],
+    point_2: tuple[float, float],
+    point_3: tuple[float, float],
+) -> float:
+    return (point_2[0] - point_1[0]) * (point_3[1] - point_1[1]) - (
+        point_2[1] - point_1[1]
+    ) * (point_3[0] - point_1[0])
+
+
+def _dot(point_1: tuple[float, float], point_2: tuple[float, float]) -> float:
+    return point_1[0] * point_2[0] + point_1[1] * point_2[1]
 
 
 def _add_circular_plane_wave_sources(

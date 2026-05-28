@@ -3,7 +3,10 @@ from __future__ import annotations
 import csv
 import math
 import sys
+from dataclasses import replace
 from pathlib import Path
+
+import yaml
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -16,6 +19,7 @@ from metasurface.apcd_dimer import (
     APCDSingleDimerRunner,
     run_apcd_single_dimer_lumerical,
     run_apcd_single_dimer_setup_only,
+    validate_apcd_single_dimer_geometry,
     write_apcd_single_dimer_results,
     write_apcd_single_dimer_summary,
 )
@@ -32,12 +36,27 @@ def test_load_apcd_single_dimer_config() -> None:
     assert config.geometry.period_x_nm == 340
     assert config.geometry.period_y_nm == 340
     assert config.geometry.height_nm == 300
+    assert config.geometry.dimer_center_distance_um == 0.18
+    assert config.geometry.minimum_gap_nm == 5
     assert config.geometry.nanopillar_1.length_nm == 130
     assert config.geometry.nanopillar_1.width_nm == 70
+    assert config.geometry.nanopillar_1.x_nm == -90
     assert config.geometry.nanopillar_1.rotation_deg == 45
     assert config.geometry.nanopillar_2.length_nm == 150
     assert config.geometry.nanopillar_2.width_nm == 85
+    assert config.geometry.nanopillar_2.x_nm == 90
     assert config.geometry.nanopillar_2.rotation_deg == -45
+
+
+def test_apcd_single_dimer_yaml_uses_non_overlapping_centers() -> None:
+    config_path = REPO_ROOT / "configs" / "apcd_single_dimer_633nm.yaml"
+    config_text = config_path.read_text(encoding="utf-8")
+    raw_config = yaml.safe_load(config_text)
+
+    assert "x_nm: -55" not in config_text
+    assert "x_nm: 55" not in config_text
+    assert raw_config["geometry"]["nanopillar_1"]["x_nm"] == -90
+    assert raw_config["geometry"]["nanopillar_2"]["x_nm"] == 90
 
 
 def test_apcd_single_dimer_dry_run_does_not_import_lumapi(tmp_path: Path) -> None:
@@ -78,6 +97,34 @@ def test_apcd_single_dimer_lumerical_extracts_circular_matrix() -> None:
     assert lumapi.fdtds[0].rotations == [45, -45]
 
 
+def test_apcd_single_dimer_geometry_validation_estimates_gap() -> None:
+    config = load_apcd_single_dimer_config(REPO_ROOT / "configs" / "apcd_single_dimer_633nm.yaml")
+
+    validation = validate_apcd_single_dimer_geometry(config)
+
+    assert validation.minimum_gap_nm > config.geometry.minimum_gap_nm
+    assert math.isclose(validation.minimum_gap_nm, 6.4506, rel_tol=1e-3)
+    assert "periodic image" in validation.closest_pair
+
+
+def test_apcd_single_dimer_geometry_validation_rejects_overlap() -> None:
+    config = load_apcd_single_dimer_config(REPO_ROOT / "configs" / "apcd_single_dimer_633nm.yaml")
+    invalid_geometry = replace(
+        config.geometry,
+        dimer_center_distance_um=None,
+        nanopillar_1=replace(config.geometry.nanopillar_1, x_nm=-55),
+        nanopillar_2=replace(config.geometry.nanopillar_2, x_nm=55),
+    )
+    invalid_config = replace(config, geometry=invalid_geometry)
+
+    try:
+        validate_apcd_single_dimer_geometry(invalid_config)
+    except ValueError as exc:
+        assert "overlaps" in str(exc)
+    else:
+        raise AssertionError("Expected overlapping APCD geometry to be rejected")
+
+
 def test_apcd_single_dimer_setup_only_saves_fsp_without_run(tmp_path: Path) -> None:
     config = load_apcd_single_dimer_config(REPO_ROOT / "configs" / "apcd_single_dimer_633nm.yaml")
     runtime = RuntimeConfig(mode="test", enable_lumerical=True, lumapi_python_api_dir="", hide_gui=True)
@@ -97,6 +144,31 @@ def test_apcd_single_dimer_setup_only_saves_fsp_without_run(tmp_path: Path) -> N
     assert lumapi.fdtds[0].run_called is False
     assert lumapi.fdtds[0].getdata_called is False
     assert lumapi.fdtds[0].source_phases == [0, 90]
+
+
+def test_apcd_single_dimer_setup_only_does_not_save_invalid_geometry(tmp_path: Path) -> None:
+    config = load_apcd_single_dimer_config(REPO_ROOT / "configs" / "apcd_single_dimer_633nm.yaml")
+    invalid_geometry = replace(
+        config.geometry,
+        dimer_center_distance_um=None,
+        nanopillar_1=replace(config.geometry.nanopillar_1, x_nm=-55),
+        nanopillar_2=replace(config.geometry.nanopillar_2, x_nm=55),
+    )
+    invalid_config = replace(config, geometry=invalid_geometry)
+    runtime = RuntimeConfig(mode="test", enable_lumerical=True, lumapi_python_api_dir="", hide_gui=True)
+    lumapi = _FakeLumapi()
+
+    row = run_apcd_single_dimer_setup_only(
+        config=invalid_config,
+        runtime=runtime,
+        lumapi=lumapi,
+        fsp_output=tmp_path / "invalid.fsp",
+    )
+
+    assert row["status"] == "error"
+    assert "overlaps" in str(row["note"])
+    assert lumapi.fdtds[0].saved_path == ""
+    assert lumapi.fdtds[0].run_called is False
 
 
 class _FakeLumapi:

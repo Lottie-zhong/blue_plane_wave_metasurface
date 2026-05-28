@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Union
 
@@ -72,6 +72,8 @@ class APCDDimerGeometryConfig:
     height_nm: float
     nanopillar_1: APCDNanopillarConfig
     nanopillar_2: APCDNanopillarConfig
+    dimer_center_distance_um: float | None = None
+    minimum_gap_nm: float = 5.0
 
 
 @dataclass(frozen=True)
@@ -226,12 +228,23 @@ def load_pb_supercell_config(path: Union[str, Path]) -> PBSupercellConfig:
 def load_apcd_single_dimer_config(path: Union[str, Path]) -> APCDSingleDimerConfig:
     data = _read_yaml_mapping(path)
     geometry_data = _required_mapping(data, "geometry")
+    nanopillar_1 = APCDNanopillarConfig(**_required_mapping(geometry_data, "nanopillar_1"))
+    nanopillar_2 = APCDNanopillarConfig(**_required_mapping(geometry_data, "nanopillar_2"))
+    dimer_center_distance_um = geometry_data.get("dimer_center_distance_um")
+    if dimer_center_distance_um is not None:
+        half_distance_nm = float(dimer_center_distance_um) * 1000 / 2
+        nanopillar_1 = replace(nanopillar_1, x_nm=-half_distance_nm)
+        nanopillar_2 = replace(nanopillar_2, x_nm=half_distance_nm)
     geometry = APCDDimerGeometryConfig(
         period_x_nm=float(geometry_data["period_x_nm"]),
         period_y_nm=float(geometry_data["period_y_nm"]),
         height_nm=float(geometry_data["height_nm"]),
-        nanopillar_1=APCDNanopillarConfig(**_required_mapping(geometry_data, "nanopillar_1")),
-        nanopillar_2=APCDNanopillarConfig(**_required_mapping(geometry_data, "nanopillar_2")),
+        nanopillar_1=nanopillar_1,
+        nanopillar_2=nanopillar_2,
+        dimer_center_distance_um=(
+            None if dimer_center_distance_um is None else float(dimer_center_distance_um)
+        ),
+        minimum_gap_nm=float(geometry_data.get("minimum_gap_nm", 5.0)),
     )
     return APCDSingleDimerConfig(
         project=ProjectConfig(**_required_mapping(data, "project")),

@@ -22,16 +22,18 @@ geometry:
   period_x_nm: 340
   period_y_nm: 340
   height_nm: 300
+  dimer_center_distance_um: 0.18
+  minimum_gap_nm: 5
   nanopillar_1:
     length_nm: 130
     width_nm: 70
-    x_nm: -55
+    x_nm: -90
     y_nm: 0
     rotation_deg: 45
   nanopillar_2:
     length_nm: 150
     width_nm: 85
-    x_nm: 55
+    x_nm: 90
     y_nm: 0
     rotation_deg: -45
 
