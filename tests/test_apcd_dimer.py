@@ -29,34 +29,77 @@ from metasurface.config import RuntimeConfig, load_apcd_single_dimer_config
 def test_load_apcd_single_dimer_config() -> None:
     config = load_apcd_single_dimer_config(REPO_ROOT / "configs" / "apcd_single_dimer_633nm.yaml")
 
-    assert config.project.stage == "gate1_single_apcd_dimer_633nm"
+    assert config.project.stage == "legacy_single_apcd_dimer_633nm_fractional_layout"
     assert config.target.wavelength_nm == 633
+    assert config.target.target_polarization_type == "elliptical"
+    assert config.target.psi_deg == 112.5
+    assert config.target.chi_deg == 22.5
     assert config.material.substrate == "Al2O3"
     assert config.material.meta_material == "c-Si"
+    assert config.geometry.layout_mode == "apcd_fractional"
     assert config.geometry.period_x_nm == 340
     assert config.geometry.period_y_nm == 340
     assert config.geometry.height_nm == 300
-    assert config.geometry.dimer_center_distance_um == 0.18
     assert config.geometry.minimum_gap_nm == 5
     assert config.geometry.nanopillar_1.length_nm == 130
     assert config.geometry.nanopillar_1.width_nm == 70
-    assert config.geometry.nanopillar_1.x_nm == -90
-    assert config.geometry.nanopillar_1.rotation_deg == 45
+    assert config.geometry.nanopillar_1.frac_x == 0.75
+    assert config.geometry.nanopillar_1.frac_y == 0.75
+    assert config.geometry.nanopillar_1.x_nm == 85
+    assert config.geometry.nanopillar_1.y_nm == 85
+    assert config.geometry.nanopillar_1.rotation_deg == 67.5
     assert config.geometry.nanopillar_2.length_nm == 150
     assert config.geometry.nanopillar_2.width_nm == 85
-    assert config.geometry.nanopillar_2.x_nm == 90
-    assert config.geometry.nanopillar_2.rotation_deg == -45
+    assert config.geometry.nanopillar_2.frac_x == 0.25
+    assert config.geometry.nanopillar_2.frac_y == 0.25
+    assert config.geometry.nanopillar_2.x_nm == -85
+    assert config.geometry.nanopillar_2.y_nm == -85
+    assert config.geometry.nanopillar_2.rotation_deg == 112.5
 
 
-def test_apcd_single_dimer_yaml_uses_non_overlapping_centers() -> None:
+def test_apcd_single_dimer_yaml_uses_fractional_centers() -> None:
     config_path = REPO_ROOT / "configs" / "apcd_single_dimer_633nm.yaml"
     config_text = config_path.read_text(encoding="utf-8")
     raw_config = yaml.safe_load(config_text)
 
     assert "x_nm: -55" not in config_text
     assert "x_nm: 55" not in config_text
-    assert raw_config["geometry"]["nanopillar_1"]["x_nm"] == -90
-    assert raw_config["geometry"]["nanopillar_2"]["x_nm"] == 90
+    assert raw_config["geometry"]["layout_mode"] == "apcd_fractional"
+    assert "x_nm" not in raw_config["geometry"]["nanopillar_1"]
+    assert "y_nm" not in raw_config["geometry"]["nanopillar_1"]
+    assert "x_nm" not in raw_config["geometry"]["nanopillar_2"]
+    assert "y_nm" not in raw_config["geometry"]["nanopillar_2"]
+    assert raw_config["geometry"]["nanopillar_1"]["frac_x"] == 0.75
+    assert raw_config["geometry"]["nanopillar_1"]["frac_y"] == 0.75
+    assert raw_config["geometry"]["nanopillar_2"]["frac_x"] == 0.25
+    assert raw_config["geometry"]["nanopillar_2"]["frac_y"] == 0.25
+
+
+def test_apcd_fig2_elliptical_baseline_matches_paper_layout() -> None:
+    config = load_apcd_single_dimer_config(REPO_ROOT / "configs" / "apcd_fig2_elliptical_633nm.yaml")
+
+    assert config.project.stage == "phase1_apcd_fig2_elliptical_633nm"
+    assert config.target.wavelength_nm == 633
+    assert config.target.output_basis == "alpha_beta"
+    assert config.target.target_polarization_type == "elliptical"
+    assert config.target.psi_deg == 112.5
+    assert config.target.chi_deg == 22.5
+    assert config.material.meta_material == "c-Si"
+    assert config.material.substrate == "Al2O3"
+    assert config.geometry.layout_mode == "apcd_fractional"
+    assert config.geometry.period_x_nm == 340
+    assert config.geometry.period_y_nm == 340
+    assert config.geometry.height_nm == 300
+    assert config.geometry.nanopillar_1.length_nm == 130
+    assert config.geometry.nanopillar_1.width_nm == 70
+    assert config.geometry.nanopillar_1.x_nm == 85
+    assert config.geometry.nanopillar_1.y_nm == 85
+    assert config.geometry.nanopillar_1.rotation_deg == 67.5
+    assert config.geometry.nanopillar_2.length_nm == 150
+    assert config.geometry.nanopillar_2.width_nm == 85
+    assert config.geometry.nanopillar_2.x_nm == -85
+    assert config.geometry.nanopillar_2.y_nm == -85
+    assert config.geometry.nanopillar_2.rotation_deg == 112.5
 
 
 def test_apcd_single_dimer_dry_run_does_not_import_lumapi(tmp_path: Path) -> None:
@@ -74,8 +117,8 @@ def test_apcd_single_dimer_dry_run_does_not_import_lumapi(tmp_path: Path) -> Non
         reader = csv.DictReader(handle)
         loaded_rows = list(reader)
     assert reader.fieldnames == APCD_DIMER_RESULT_FIELDS
-    assert loaded_rows[0]["wavelength_nm"] == "633"
-    assert "Acceptance criteria" in summary_path.read_text(encoding="utf-8")
+    assert float(loaded_rows[0]["wavelength_nm"]) == 633
+    assert "periodic APCD unit cell" in summary_path.read_text(encoding="utf-8")
 
 
 def test_apcd_single_dimer_lumerical_extracts_circular_matrix() -> None:
@@ -94,26 +137,28 @@ def test_apcd_single_dimer_lumerical_extracts_circular_matrix() -> None:
     assert len(lumapi.fdtds) == 2
     assert lumapi.fdtds[0].source_phases == [0, 90]
     assert lumapi.fdtds[1].source_phases == [0, -90]
-    assert lumapi.fdtds[0].rotations == [45, -45]
+    assert lumapi.fdtds[0].rotations == [67.5, 112.5]
 
 
 def test_apcd_single_dimer_geometry_validation_estimates_gap() -> None:
-    config = load_apcd_single_dimer_config(REPO_ROOT / "configs" / "apcd_single_dimer_633nm.yaml")
+    config = load_apcd_single_dimer_config(REPO_ROOT / "configs" / "apcd_fig2_elliptical_633nm.yaml")
 
     validation = validate_apcd_single_dimer_geometry(config)
 
     assert validation.minimum_gap_nm > config.geometry.minimum_gap_nm
-    assert math.isclose(validation.minimum_gap_nm, 6.4506, rel_tol=1e-3)
-    assert "periodic image" in validation.closest_pair
+    assert validation.same_cell_min_gap_nm > config.geometry.minimum_gap_nm
+    assert validation.periodic_image_min_gap_nm > config.geometry.minimum_gap_nm
+    assert validation.nearest_pair_description
+    assert validation.passed is True
 
 
 def test_apcd_single_dimer_geometry_validation_rejects_overlap() -> None:
     config = load_apcd_single_dimer_config(REPO_ROOT / "configs" / "apcd_single_dimer_633nm.yaml")
     invalid_geometry = replace(
         config.geometry,
-        dimer_center_distance_um=None,
-        nanopillar_1=replace(config.geometry.nanopillar_1, x_nm=-55),
-        nanopillar_2=replace(config.geometry.nanopillar_2, x_nm=55),
+        layout_mode="manual_absolute",
+        nanopillar_1=replace(config.geometry.nanopillar_1, x_nm=0, y_nm=0),
+        nanopillar_2=replace(config.geometry.nanopillar_2, x_nm=0, y_nm=0),
     )
     invalid_config = replace(config, geometry=invalid_geometry)
 
@@ -125,8 +170,40 @@ def test_apcd_single_dimer_geometry_validation_rejects_overlap() -> None:
         raise AssertionError("Expected overlapping APCD geometry to be rejected")
 
 
+def test_apcd_single_dimer_geometry_validation_rejects_periodic_overlap() -> None:
+    config = load_apcd_single_dimer_config(REPO_ROOT / "configs" / "apcd_fig2_elliptical_633nm.yaml")
+    periodic_overlap_geometry = replace(
+        config.geometry,
+        layout_mode="manual_absolute",
+        nanopillar_1=replace(
+            config.geometry.nanopillar_1,
+            length_nm=100,
+            width_nm=50,
+            x_nm=160,
+            y_nm=0,
+            rotation_deg=0,
+        ),
+        nanopillar_2=replace(
+            config.geometry.nanopillar_2,
+            length_nm=100,
+            width_nm=50,
+            x_nm=-160,
+            y_nm=0,
+            rotation_deg=0,
+        ),
+    )
+    invalid_config = replace(config, geometry=periodic_overlap_geometry)
+
+    try:
+        validate_apcd_single_dimer_geometry(invalid_config)
+    except ValueError as exc:
+        assert "periodic image" in str(exc)
+    else:
+        raise AssertionError("Expected periodic-image overlap to be rejected")
+
+
 def test_apcd_single_dimer_setup_only_saves_fsp_without_run(tmp_path: Path) -> None:
-    config = load_apcd_single_dimer_config(REPO_ROOT / "configs" / "apcd_single_dimer_633nm.yaml")
+    config = load_apcd_single_dimer_config(REPO_ROOT / "configs" / "apcd_fig2_elliptical_633nm.yaml")
     runtime = RuntimeConfig(mode="test", enable_lumerical=True, lumapi_python_api_dir="", hide_gui=True)
     lumapi = _FakeLumapi()
     fsp_output = tmp_path / "apcd_single_dimer_633nm_setup.fsp"
@@ -150,9 +227,9 @@ def test_apcd_single_dimer_setup_only_does_not_save_invalid_geometry(tmp_path: P
     config = load_apcd_single_dimer_config(REPO_ROOT / "configs" / "apcd_single_dimer_633nm.yaml")
     invalid_geometry = replace(
         config.geometry,
-        dimer_center_distance_um=None,
-        nanopillar_1=replace(config.geometry.nanopillar_1, x_nm=-55),
-        nanopillar_2=replace(config.geometry.nanopillar_2, x_nm=55),
+        layout_mode="manual_absolute",
+        nanopillar_1=replace(config.geometry.nanopillar_1, x_nm=0, y_nm=0),
+        nanopillar_2=replace(config.geometry.nanopillar_2, x_nm=0, y_nm=0),
     )
     invalid_config = replace(config, geometry=invalid_geometry)
     runtime = RuntimeConfig(mode="test", enable_lumerical=True, lumapi_python_api_dir="", hide_gui=True)

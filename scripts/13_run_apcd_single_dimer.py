@@ -21,7 +21,7 @@ from metasurface.config import load_apcd_single_dimer_config
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run Gate 1 single APCD dimer validation at 633 nm.")
-    parser.add_argument("--config", default="configs/apcd_single_dimer_633nm.yaml", help="APCD dimer YAML config.")
+    parser.add_argument("--config", default="configs/apcd_fig2_elliptical_633nm.yaml", help="APCD dimer YAML config.")
     parser.add_argument("--runtime", default="configs/runtime.yaml", help="Local runtime YAML.")
     parser.add_argument("--dry-run", action="store_true", help="Write planned outputs without importing lumapi.")
     parser.add_argument("--setup-only", action="store_true", help="Build and save the FDTD model without running it.")
@@ -47,7 +47,9 @@ def main() -> int:
     result_dir = config.output.result_dir
     results_path = ""
     summary_path = ""
-    if not args.setup_only:
+    if args.setup_only:
+        summary_path = write_apcd_single_dimer_summary(row, result_dir / "summary.md")
+    else:
         results_path = write_apcd_single_dimer_results(row, result_dir / "results.csv")
         summary_path = write_apcd_single_dimer_summary(row, result_dir / "summary.md")
         if not args.dry_run and row["status"] == "ok":

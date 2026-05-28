@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Union
 
@@ -63,16 +63,19 @@ class APCDNanopillarConfig:
     x_nm: float
     y_nm: float
     rotation_deg: float
+    frac_x: float | None = None
+    frac_y: float | None = None
+    rotation_rule: str | None = None
 
 
 @dataclass(frozen=True)
 class APCDDimerGeometryConfig:
+    layout_mode: str
     period_x_nm: float
     period_y_nm: float
     height_nm: float
     nanopillar_1: APCDNanopillarConfig
     nanopillar_2: APCDNanopillarConfig
-    dimer_center_distance_um: float | None = None
     minimum_gap_nm: float = 5.0
 
 
@@ -94,6 +97,9 @@ class APCDDimerTargetConfig:
     eps: float
     spin_er_threshold_db: float
     conversion_to_leakage_threshold: float
+    target_polarization_type: str = "circular"
+    psi_deg: float | None = None
+    chi_deg: float | None = None
 
 
 @dataclass(frozen=True)
@@ -227,33 +233,110 @@ def load_pb_supercell_config(path: Union[str, Path]) -> PBSupercellConfig:
 
 def load_apcd_single_dimer_config(path: Union[str, Path]) -> APCDSingleDimerConfig:
     data = _read_yaml_mapping(path)
+    target_data = _required_mapping(data, "target")
     geometry_data = _required_mapping(data, "geometry")
-    nanopillar_1 = APCDNanopillarConfig(**_required_mapping(geometry_data, "nanopillar_1"))
-    nanopillar_2 = APCDNanopillarConfig(**_required_mapping(geometry_data, "nanopillar_2"))
-    dimer_center_distance_um = geometry_data.get("dimer_center_distance_um")
-    if dimer_center_distance_um is not None:
-        half_distance_nm = float(dimer_center_distance_um) * 1000 / 2
-        nanopillar_1 = replace(nanopillar_1, x_nm=-half_distance_nm)
-        nanopillar_2 = replace(nanopillar_2, x_nm=half_distance_nm)
+    layout_mode = str(geometry_data.get("layout_mode", "manual_absolute"))
+    period_x_nm = float(geometry_data["period_x_nm"])
+    period_y_nm = float(geometry_data["period_y_nm"])
     geometry = APCDDimerGeometryConfig(
-        period_x_nm=float(geometry_data["period_x_nm"]),
-        period_y_nm=float(geometry_data["period_y_nm"]),
+        layout_mode=layout_mode,
+        period_x_nm=period_x_nm,
+        period_y_nm=period_y_nm,
         height_nm=float(geometry_data["height_nm"]),
-        nanopillar_1=nanopillar_1,
-        nanopillar_2=nanopillar_2,
-        dimer_center_distance_um=(
-            None if dimer_center_distance_um is None else float(dimer_center_distance_um)
+        nanopillar_1=_load_apcd_nanopillar(
+            geometry_data,
+            "nanopillar_1",
+            layout_mode=layout_mode,
+            period_x_nm=period_x_nm,
+            period_y_nm=period_y_nm,
+            target_data=target_data,
+        ),
+        nanopillar_2=_load_apcd_nanopillar(
+            geometry_data,
+            "nanopillar_2",
+            layout_mode=layout_mode,
+            period_x_nm=period_x_nm,
+            period_y_nm=period_y_nm,
+            target_data=target_data,
         ),
         minimum_gap_nm=float(geometry_data.get("minimum_gap_nm", 5.0)),
     )
     return APCDSingleDimerConfig(
         project=ProjectConfig(**_required_mapping(data, "project")),
-        target=APCDDimerTargetConfig(**_required_mapping(data, "target")),
+        target=APCDDimerTargetConfig(
+            wavelength_nm=float(target_data["wavelength_nm"]),
+            incident_wave=str(target_data["incident_wave"]),
+            output_basis=str(target_data["output_basis"]),
+            eps=float(target_data.get("eps", 1.0e-12)),
+            spin_er_threshold_db=float(target_data.get("spin_er_threshold_db", 8)),
+            conversion_to_leakage_threshold=float(target_data.get("conversion_to_leakage_threshold", 6)),
+            target_polarization_type=str(target_data.get("target_polarization_type", "circular")),
+            psi_deg=_optional_float(target_data.get("psi_deg")),
+            chi_deg=_optional_float(target_data.get("chi_deg")),
+        ),
         material=APCDDimerMaterialConfig(**_required_mapping(data, "material")),
         geometry=geometry,
         simulation=APCDDimerSimulationConfig(**_required_mapping(data, "simulation")),
         output=OutputConfig(result_dir=Path(_required_mapping(data, "output")["result_dir"])),
     )
+
+
+def _load_apcd_nanopillar(
+    geometry_data: dict[str, Any],
+    key: str,
+    *,
+    layout_mode: str,
+    period_x_nm: float,
+    period_y_nm: float,
+    target_data: dict[str, Any],
+) -> APCDNanopillarConfig:
+    pillar_data = _required_mapping(geometry_data, key)
+    frac_x = _optional_float(pillar_data.get("frac_x"))
+    frac_y = _optional_float(pillar_data.get("frac_y"))
+    if layout_mode == "apcd_fractional":
+        if frac_x is None or frac_y is None:
+            raise ValueError(f"{key} requires frac_x and frac_y for apcd_fractional layout")
+        x_nm = (frac_x - 0.5) * period_x_nm
+        y_nm = (frac_y - 0.5) * period_y_nm
+    elif layout_mode == "manual_absolute":
+        x_nm = float(pillar_data["x_nm"])
+        y_nm = float(pillar_data["y_nm"])
+    else:
+        raise ValueError(f"Unsupported APCD layout_mode: {layout_mode}")
+
+    rotation_rule = pillar_data.get("rotation_rule")
+    if rotation_rule is None:
+        rotation_deg = float(pillar_data.get("rotation_deg", 0.0))
+    else:
+        rotation_deg = _resolve_apcd_rotation_deg(str(rotation_rule), target_data, key)
+
+    return APCDNanopillarConfig(
+        length_nm=float(pillar_data["length_nm"]),
+        width_nm=float(pillar_data["width_nm"]),
+        x_nm=x_nm,
+        y_nm=y_nm,
+        rotation_deg=rotation_deg,
+        frac_x=frac_x,
+        frac_y=frac_y,
+        rotation_rule=None if rotation_rule is None else str(rotation_rule),
+    )
+
+
+def _resolve_apcd_rotation_deg(rotation_rule: str, target_data: dict[str, Any], key: str) -> float:
+    psi_deg = _optional_float(target_data.get("psi_deg"))
+    if psi_deg is None:
+        raise ValueError(f"{key} rotation_rule={rotation_rule} requires target.psi_deg")
+    if rotation_rule == "psi":
+        return psi_deg
+    if rotation_rule == "psi_minus_45":
+        return psi_deg - 45
+    raise ValueError(f"Unsupported APCD rotation_rule for {key}: {rotation_rule}")
+
+
+def _optional_float(value: Any) -> float | None:
+    if value is None:
+        return None
+    return float(value)
 
 
 def load_runtime_config(path: Union[str, Path]) -> RuntimeConfig:

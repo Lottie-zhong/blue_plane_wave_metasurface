@@ -42,9 +42,12 @@ APCD_DIMER_RESULT_FIELDS = [
 
 @dataclass(frozen=True)
 class APCDGeometryValidation:
+    same_cell_min_gap_nm: float
+    periodic_image_min_gap_nm: float
     minimum_gap_nm: float
     minimum_allowed_gap_nm: float
-    closest_pair: str
+    nearest_pair_description: str
+    passed: bool = True
 
 
 @dataclass(frozen=True)
@@ -110,6 +113,11 @@ def run_apcd_single_dimer_lumerical(
     lumapi: ModuleType,
 ) -> dict[str, object]:
     try:
+        if config.target.output_basis != "circular":
+            raise NotImplementedError(
+                "Real-run extraction for APCD alpha/beta basis is not implemented yet; "
+                "do not evaluate the paper Fig. 2 elliptical baseline with circular R/L metrics."
+            )
         matrix = {
             "L": _run_one_incidence(config, runtime, lumapi, incident_polarization="LCP"),
             "R": _run_one_incidence(config, runtime, lumapi, incident_polarization="RCP"),
@@ -304,38 +312,60 @@ def _add_nanopillar(
 
 def validate_apcd_single_dimer_geometry(config: APCDSingleDimerConfig) -> APCDGeometryValidation:
     geometry = config.geometry
-    pillar_1 = geometry.nanopillar_1
-    pillar_2 = geometry.nanopillar_2
-    polygon_1 = _rotated_rectangle_corners_nm(pillar_1)
-    polygon_2 = _rotated_rectangle_corners_nm(pillar_2)
+    polygons = {
+        "nanopillar_1": _rotated_rectangle_corners_nm(geometry.nanopillar_1),
+        "nanopillar_2": _rotated_rectangle_corners_nm(geometry.nanopillar_2),
+    }
 
-    direct_gap_nm = _polygon_gap_nm(polygon_1, polygon_2)
-    minimum_gap_nm = direct_gap_nm
-    closest_pair = "nanopillar_1 to nanopillar_2"
+    same_cell_gap_nm = _polygon_gap_nm(polygons["nanopillar_1"], polygons["nanopillar_2"])
+    minimum_gap_nm = same_cell_gap_nm
+    nearest_pair = "nanopillar_1 to nanopillar_2 in same periodic cell"
 
-    for x_shift in (-geometry.period_x_nm, 0, geometry.period_x_nm):
-        for y_shift in (-geometry.period_y_nm, 0, geometry.period_y_nm):
-            if x_shift == 0 and y_shift == 0:
-                continue
-            shifted_2 = [(x + x_shift, y + y_shift) for x, y in polygon_2]
-            periodic_gap_nm = _polygon_gap_nm(polygon_1, shifted_2)
-            if periodic_gap_nm < minimum_gap_nm:
-                minimum_gap_nm = periodic_gap_nm
-                closest_pair = f"nanopillar_1 to nanopillar_2 periodic image ({x_shift:g}, {y_shift:g}) nm"
+    periodic_gap_nm = math.inf
+    for shift_x, shift_y in _periodic_neighbor_shifts_nm(geometry.period_x_nm, geometry.period_y_nm):
+        for central_name, central_polygon in polygons.items():
+            for image_name, image_polygon in polygons.items():
+                shifted_image = [(x + shift_x, y + shift_y) for x, y in image_polygon]
+                gap_nm = _polygon_gap_nm(central_polygon, shifted_image)
+                if gap_nm < periodic_gap_nm:
+                    periodic_gap_nm = gap_nm
+                    nearest_periodic_pair = (
+                        f"{central_name} to {image_name} periodic image "
+                        f"({shift_x:g}, {shift_y:g}) nm"
+                    )
+
+    if periodic_gap_nm < minimum_gap_nm:
+        minimum_gap_nm = periodic_gap_nm
+        nearest_pair = nearest_periodic_pair
 
     if minimum_gap_nm <= 0:
-        raise ValueError(f"APCD dimer geometry overlaps: {closest_pair}")
+        raise ValueError(f"APCD periodic unit-cell geometry overlaps: {nearest_pair}")
     if minimum_gap_nm < geometry.minimum_gap_nm:
         raise ValueError(
-            "APCD dimer geometry gap is too small: "
-            f"{minimum_gap_nm:.3g} nm < {geometry.minimum_gap_nm:.3g} nm ({closest_pair})"
+            "APCD periodic unit-cell geometry gap is too small: "
+            f"{minimum_gap_nm:.3g} nm < {geometry.minimum_gap_nm:.3g} nm ({nearest_pair})"
         )
 
     return APCDGeometryValidation(
+        same_cell_min_gap_nm=same_cell_gap_nm,
+        periodic_image_min_gap_nm=periodic_gap_nm,
         minimum_gap_nm=minimum_gap_nm,
         minimum_allowed_gap_nm=geometry.minimum_gap_nm,
-        closest_pair=closest_pair,
+        nearest_pair_description=nearest_pair,
     )
+
+
+def _periodic_neighbor_shifts_nm(period_x_nm: float, period_y_nm: float) -> list[tuple[float, float]]:
+    return [
+        (-period_x_nm, -period_y_nm),
+        (-period_x_nm, 0),
+        (-period_x_nm, period_y_nm),
+        (0, -period_y_nm),
+        (0, period_y_nm),
+        (period_x_nm, -period_y_nm),
+        (period_x_nm, 0),
+        (period_x_nm, period_y_nm),
+    ]
 
 
 def _rotated_rectangle_corners_nm(pillar: APCDNanopillarConfig) -> list[tuple[float, float]]:
@@ -414,7 +444,36 @@ def _segments_intersect(
     orientation_2 = _orientation(point_1, point_2, point_4)
     orientation_3 = _orientation(point_3, point_4, point_1)
     orientation_4 = _orientation(point_3, point_4, point_2)
-    return orientation_1 * orientation_2 <= 0 and orientation_3 * orientation_4 <= 0
+    eps = 1e-9
+    if (
+        orientation_1 * orientation_2 < -eps
+        and orientation_3 * orientation_4 < -eps
+    ):
+        return True
+    if abs(orientation_1) <= eps and _point_on_segment(point_3, point_1, point_2):
+        return True
+    if abs(orientation_2) <= eps and _point_on_segment(point_4, point_1, point_2):
+        return True
+    if abs(orientation_3) <= eps and _point_on_segment(point_1, point_3, point_4):
+        return True
+    if abs(orientation_4) <= eps and _point_on_segment(point_2, point_3, point_4):
+        return True
+    return False
+
+
+def _point_on_segment(
+    point: tuple[float, float],
+    segment_start: tuple[float, float],
+    segment_end: tuple[float, float],
+) -> bool:
+    return (
+        min(segment_start[0], segment_end[0]) - 1e-9
+        <= point[0]
+        <= max(segment_start[0], segment_end[0]) + 1e-9
+        and min(segment_start[1], segment_end[1]) - 1e-9
+        <= point[1]
+        <= max(segment_start[1], segment_end[1]) + 1e-9
+    )
 
 
 def _point_segment_distance_nm(
@@ -497,6 +556,7 @@ def _result_row(
     status: str,
     note: str,
 ) -> dict[str, object]:
+    geometry_validation = _safe_geometry_validation(config)
     return {
         "wavelength_nm": config.target.wavelength_nm,
         "period_x_nm": config.geometry.period_x_nm,
@@ -516,7 +576,16 @@ def _result_row(
         "gate_pass": gate_pass,
         "status": status,
         "note": note,
+        "_config": config,
+        "_geometry_validation": geometry_validation,
     }
+
+
+def _safe_geometry_validation(config: APCDSingleDimerConfig) -> APCDGeometryValidation | None:
+    try:
+        return validate_apcd_single_dimer_geometry(config)
+    except ValueError:
+        return None
 
 
 def jones_matrix_circular_basis(row: dict[str, object]) -> list[list[complex]]:
@@ -532,15 +601,17 @@ def write_apcd_single_dimer_results(row: dict[str, object], output_path: Union[s
     with path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=APCD_DIMER_RESULT_FIELDS)
         writer.writeheader()
-        writer.writerow(row)
+        writer.writerow({field: row.get(field, "") for field in APCD_DIMER_RESULT_FIELDS})
     return path
 
 
 def write_apcd_single_dimer_summary(row: dict[str, object], output_path: Union[str, Path]) -> Path:
     path = Path(output_path)
     path.parent.mkdir(parents=True, exist_ok=True)
+    config = row.get("_config")
+    validation = row.get("_geometry_validation")
     lines = [
-        "# APCD Single Dimer 633 nm Gate 1 Summary",
+        "# APCD Periodic Unit-Cell 633 nm Summary",
         "",
         f"- status: {row['status']}",
         f"- target_conversion: {row['target_conversion']}",
@@ -550,12 +621,65 @@ def write_apcd_single_dimer_summary(row: dict[str, object], output_path: Union[s
         f"- total_transmission: {row['total_transmission']}",
         f"- gate_pass: {row['gate_pass']}",
         f"- note: {row['note']}",
-        "",
-        "Acceptance criteria:",
-        "",
-        "- spin_ER_dB > 8 dB; or",
-        "- target_conversion / opposite_spin_leakage > 6.",
     ]
+    if isinstance(config, APCDSingleDimerConfig):
+        p1 = config.geometry.nanopillar_1
+        p2 = config.geometry.nanopillar_2
+        lines.extend(
+            [
+                "",
+                "Geometry:",
+                "",
+                "- model: periodic APCD unit cell with one dimerized metamolecule; x/y boundaries are periodic, z boundaries are PML.",
+                f"- layout_mode: {config.geometry.layout_mode}",
+                f"- period_x_nm: {config.geometry.period_x_nm}",
+                f"- period_y_nm: {config.geometry.period_y_nm}",
+                f"- height_nm: {config.geometry.height_nm}",
+                f"- material: {config.material.meta_material} on {config.material.substrate}",
+                (
+                    "- nanopillar_1: "
+                    f"frac=({p1.frac_x}, {p1.frac_y}), "
+                    f"x_nm={p1.x_nm}, y_nm={p1.y_nm}, "
+                    f"length_nm={p1.length_nm}, width_nm={p1.width_nm}, "
+                    f"rotation_deg={p1.rotation_deg}, rotation_rule={p1.rotation_rule}"
+                ),
+                (
+                    "- nanopillar_2: "
+                    f"frac=({p2.frac_x}, {p2.frac_y}), "
+                    f"x_nm={p2.x_nm}, y_nm={p2.y_nm}, "
+                    f"length_nm={p2.length_nm}, width_nm={p2.width_nm}, "
+                    f"rotation_deg={p2.rotation_deg}, rotation_rule={p2.rotation_rule}"
+                ),
+                "- rotation_note: no 180-degree angle folding is applied in the generated setup.",
+                "- boundary_note: near a periodic boundary is not automatically wrong; overlap or too-small gap to periodic images is what fails validation.",
+            ]
+        )
+    if isinstance(validation, APCDGeometryValidation):
+        lines.extend(
+            [
+                "",
+                "Geometry validation:",
+                "",
+                f"- same_cell_min_gap_nm: {validation.same_cell_min_gap_nm}",
+                f"- periodic_image_min_gap_nm: {validation.periodic_image_min_gap_nm}",
+                f"- nearest_pair_description: {validation.nearest_pair_description}",
+                f"- minimum_gap_nm_threshold: {validation.minimum_allowed_gap_nm}",
+                f"- validation_passed: {validation.passed}",
+            ]
+        )
+    lines.extend(
+        [
+            "",
+            "Future paper-style APCD outputs:",
+            "",
+            "- jones_matrix_linear_basis.npy",
+            "- jones_matrix_alpha_beta_basis.npy",
+            "- results.csv",
+            "- summary.md",
+            "- metrics: t_alpha_star_from_alpha, t_beta_star_from_alpha, t_alpha_star_from_beta, t_beta_star_from_beta, T_alpha, T_beta, PD.",
+            "- note: the paper Fig. 2 elliptical baseline should not be evaluated only with circular R/L metrics.",
+        ]
+    )
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return path
 

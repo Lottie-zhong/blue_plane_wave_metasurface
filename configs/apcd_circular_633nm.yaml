@@ -1,14 +1,12 @@
 project:
   name: blue_plane_wave_metasurface
-  stage: legacy_single_apcd_dimer_633nm_fractional_layout
+  stage: later_apcd_circular_633nm_reference
 
 target:
   wavelength_nm: 633
   incident_wave: plane_wave
   output_basis: circular
-  target_polarization_type: elliptical
-  psi_deg: 112.5
-  chi_deg: 22.5
+  target_polarization_type: circular
   eps: 1.0e-12
   spin_er_threshold_db: 8
   conversion_to_leakage_threshold: 6
@@ -28,17 +26,17 @@ geometry:
   height_nm: 300
   minimum_gap_nm: 5
   nanopillar_1:
-    length_nm: 130
-    width_nm: 70
+    length_nm: 160
+    width_nm: 75
     frac_x: 0.75
     frac_y: 0.75
-    rotation_rule: psi_minus_45
+    rotation_deg: 0
   nanopillar_2:
-    length_nm: 150
-    width_nm: 85
+    length_nm: 165
+    width_nm: 100
     frac_x: 0.25
     frac_y: 0.25
-    rotation_rule: psi
+    rotation_deg: 0
 
 simulation:
   substrate_thickness_nm: 220
@@ -49,4 +47,4 @@ simulation:
   simulation_time_fs: 250
 
 output:
-  result_dir: outputs/apcd_single_dimer_633nm
+  result_dir: outputs/apcd_circular_633nm

@@ -1,11 +1,11 @@
 project:
   name: blue_plane_wave_metasurface
-  stage: legacy_single_apcd_dimer_633nm_fractional_layout
+  stage: phase1_apcd_fig2_elliptical_633nm
 
 target:
   wavelength_nm: 633
   incident_wave: plane_wave
-  output_basis: circular
+  output_basis: alpha_beta
   target_polarization_type: elliptical
   psi_deg: 112.5
   chi_deg: 22.5
@@ -49,4 +49,4 @@ simulation:
   simulation_time_fs: 250
 
 output:
-  result_dir: outputs/apcd_single_dimer_633nm
+  result_dir: outputs/apcd_fig2_elliptical_633nm
