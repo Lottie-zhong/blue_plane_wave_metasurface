@@ -154,37 +154,63 @@ def test_apcd_fig2_lumerical_extracts_linear_and_alpha_beta_matrices() -> None:
     row = run_apcd_single_dimer_lumerical(config=config, runtime=runtime, lumapi=lumapi)
 
     assert row["status"] == "ok"
-    assert len(lumapi.fdtds) == 2
-    assert lumapi.fdtds[0].events.index("run") < lumapi.fdtds[0].events.index("getdata:T_fields:Ex")
-    assert lumapi.fdtds[1].events.index("run") < lumapi.fdtds[1].events.index("getdata:T_fields:Ex")
-    run_index = lumapi.fdtds[0].events.index("run")
-    ex_index = lumapi.fdtds[0].events.index("getdata:T_fields:Ex")
-    assert "switchtolayout" not in lumapi.fdtds[0].events[run_index:ex_index]
-    assert lumapi.fdtds[0].transmission_called is False
-    assert lumapi.fdtds[1].transmission_called is False
-    assert lumapi.fdtds[0].source_angles == [0]
-    assert lumapi.fdtds[1].source_angles == [90]
-    assert lumapi.fdtds[0].source_phases == [0]
-    assert lumapi.fdtds[1].source_phases == [0]
+    assert len(lumapi.fdtds) == 4
+
+    x_setup = lumapi.fdtds[0]
+    x_run = lumapi.fdtds[1]
+    y_setup = lumapi.fdtds[2]
+    y_run = lumapi.fdtds[3]
+
+    assert x_setup.source_angles == [0]
+    assert y_setup.source_angles == [90]
+    assert x_run.source_angles == [0]
+    assert y_run.source_angles == [90]
+
+    assert any(event.startswith("save:") and "pre_run_X.fsp" in event for event in x_setup.events)
+    assert any(event.startswith("load:") and "pre_run_X.fsp" in event for event in x_run.events)
+    assert any(event.startswith("save:") and "pre_run_Y.fsp" in event for event in y_setup.events)
+    assert any(event.startswith("load:") and "pre_run_Y.fsp" in event for event in y_run.events)
+
+    assert x_run.events.index("run") < x_run.events.index("getdata:T_fields:Ex")
+    assert y_run.events.index("run") < y_run.events.index("getdata:T_fields:Ex")
+
+    x_run_index = x_run.events.index("run")
+    x_ex_index = x_run.events.index("getdata:T_fields:Ex")
+    assert "switchtolayout" not in x_run.events[x_run_index:x_ex_index]
+
+    y_run_index = y_run.events.index("run")
+    y_ex_index = y_run.events.index("getdata:T_fields:Ex")
+    assert "switchtolayout" not in y_run.events[y_run_index:y_ex_index]
+
+    assert x_run.transmission_called is False
+    assert y_run.transmission_called is False
+    assert x_run.source_phases == [0]
+    assert y_run.source_phases == [0]
+
     assert row["spin_ER_dB"] == ""
     assert row["T_R_from_L"] == ""
-    assert row["t_xx"] == "0.8+0j"
-    assert row["t_xy"] == "0.2+0j"
-    assert row["t_yx"] == "0+0.1j"
-    assert row["t_yy"] == "0.7+0j"
+    assert abs(complex(row["t_xx"]) - (0.8 + 0j)) < 1e-12
+    assert abs(complex(row["t_xy"]) - (0.2 + 0j)) < 1e-12
+    assert abs(complex(row["t_yx"]) - (0 + 0.1j)) < 1e-12
+    assert abs(complex(row["t_yy"]) - (0.7 + 0j)) < 1e-12
+
     expected_linear = [[0.8 + 0j, 0.2 + 0j], [0 + 0.1j, 0.7 + 0j]]
     expected_alpha_beta = transform_linear_jones_to_alpha_beta(
         expected_linear,
         psi_deg=112.5,
         chi_deg=22.5,
     )
-    assert jones_matrix_linear_basis(row) == expected_linear
+    actual_linear = jones_matrix_linear_basis(row)
+    for row_index in range(2):
+        for column_index in range(2):
+            assert abs(actual_linear[row_index][column_index] - expected_linear[row_index][column_index]) < 1e-12
     for row_index in range(2):
         for column_index in range(2):
             assert abs(
                 jones_matrix_alpha_beta_basis(row)[row_index][column_index]
                 - expected_alpha_beta[row_index][column_index]
             ) < 1e-12
+
     assert float(row["T_alpha"]) >= 0
     assert float(row["T_beta"]) >= 0
     assert -1 <= float(row["PD"]) <= 1
@@ -253,9 +279,10 @@ def test_apcd_fig2_missing_field_data_writes_diagnostic_summary_and_debug_fsp(tm
     assert row["status"] == "error"
     assert "T_fields" in str(row["_diagnostics"])
     assert row["_debug_fsp_path"] == tmp_path / "debug_after_run_X.fsp"
-    assert lumapi.fdtds[0].saved_path == str(tmp_path / "debug_after_run_X.fsp")
-    save_index = lumapi.fdtds[0].events.index(f"save:{tmp_path / 'debug_after_run_X.fsp'}")
-    assert "switchtolayout" not in lumapi.fdtds[0].events[lumapi.fdtds[0].events.index("run"):save_index]
+    run_fdtd = lumapi.fdtds[1]
+    assert run_fdtd.saved_path == str(tmp_path / "debug_after_run_X.fsp")
+    save_index = run_fdtd.events.index(f"save:{tmp_path / 'debug_after_run_X.fsp'}")
+    assert "switchtolayout" not in run_fdtd.events[run_fdtd.events.index("run"):save_index]
     summary_text = summary_path.read_text(encoding="utf-8")
     assert "Run diagnostics" in summary_text
     assert "debug_after_run_X.fsp" in summary_text
@@ -270,8 +297,8 @@ def test_apcd_fig2_getdata_failure_uses_getresult_fallback() -> None:
     row = run_apcd_single_dimer_lumerical(config=config, runtime=runtime, lumapi=lumapi)
 
     assert row["status"] == "ok"
-    assert row["t_xx"] == "0.8+0j"
-    assert any(event == "getresult:T_fields:E" for event in lumapi.fdtds[0].events)
+    assert abs(complex(row["t_xx"]) - (0.8 + 0j)) < 1e-12
+    assert any(event == "getresult:T_fields:E" for fdtd in lumapi.fdtds for event in fdtd.events)
     assert "fallback succeeded" in str(row["_diagnostics"])
 
 
@@ -416,6 +443,8 @@ class _FakeLumapi:
 
 
 class _FakeFDTD:
+    _SAVED_STATES: dict[str, dict[str, list[float]]] = {}
+
     def __init__(self) -> None:
         self.hide = False
         self.run_called = False
@@ -464,9 +493,27 @@ class _FakeFDTD:
     def save(self, path: str) -> None:
         self.events.append(f"save:{path}")
         self.saved_path = path
+        _FakeFDTD._SAVED_STATES[str(path)] = {
+            "source_phases": list(self.source_phases),
+            "source_angles": list(self.source_angles),
+            "rotations": list(self.rotations),
+        }
+
+    def load(self, path: str) -> None:
+        self.events.append(f"load:{path}")
+        state = _FakeFDTD._SAVED_STATES.get(str(path), {})
+        self.source_phases = list(state.get("source_phases", self.source_phases))
+        self.source_angles = list(state.get("source_angles", self.source_angles))
+        self.rotations = list(state.get("rotations", self.rotations))
 
     def getresult(self, name: str, result_name: str) -> object:
         self.events.append(f"getresult:{name}:{result_name}")
+        if name == "T" and result_name == "T":
+            if self.source_angles == [0]:
+                return {"T": [[0.65]]}
+            if self.source_angles == [90]:
+                return {"T": [[0.53]]}
+            return {"T": [[0.5]]}
         if name == "T_fields" and result_name == "E":
             if self.source_angles == [0]:
                 return {"Ex": [[0.8 + 0j]], "Ey": [[0 + 0.1j]]}

@@ -306,41 +306,81 @@ def _run_one_linear_incidence(
     lumapi: ModuleType,
     incident_polarization: str,
 ) -> dict[str, complex]:
-    fdtd = None
+    setup_fdtd = None
+    run_fdtd = None
     diagnostics: list[str] = []
-    run_completed = False
-    debug_path = config.output.result_dir / f"debug_after_run_{incident_polarization.upper()}.fsp"
+    output_dir = config.output.result_dir.resolve()
+    pre_run_path = output_dir / f"pre_run_{incident_polarization.upper()}.fsp"
+    debug_path = output_dir / f"debug_after_run_{incident_polarization.upper()}.fsp"
+
     try:
-        fdtd = lumapi.FDTD(hide=runtime.hide_gui)
-        _build_apcd_single_dimer_model(fdtd, config, incident_polarization)
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        setup_fdtd = lumapi.FDTD(hide=runtime.hide_gui)
+        _build_apcd_single_dimer_model(setup_fdtd, config, incident_polarization)
         diagnostics.extend(_model_setup_diagnostics(config, incident_polarization))
-        fdtd.run()
-        run_completed = True
-        diagnostics.append(f"fdtd.run completed before data extraction for {incident_polarization}")
+        setup_fdtd.save(str(pre_run_path))
+        diagnostics.append(f"pre_run_fsp_saved={pre_run_path}")
+
+        try:
+            setup_fdtd.close()
+        except Exception:
+            pass
+        setup_fdtd = None
+
+        run_fdtd = lumapi.FDTD(hide=False)
+        run_fdtd.load(str(pre_run_path))
+        diagnostics.append(f"pre_run_fsp_loaded={pre_run_path}")
+
+        run_fdtd.run()
+        diagnostics.append(f"fdtd.run completed after loading pre-run fsp for {incident_polarization}")
         diagnostics.append("switchtolayout_after_run=False")
-        ex = _extract_monitor_complex(fdtd, "T_fields", "Ex", diagnostics)
-        ey = _extract_monitor_complex(fdtd, "T_fields", "Ey", diagnostics)
-        diagnostics.extend(_collect_fdtd_diagnostics(fdtd))
-        return {"Ex": ex, "Ey": ey, "transmission": "", "diagnostics": diagnostics}
+
+        ex = _extract_monitor_complex(run_fdtd, "T_fields", "Ex", diagnostics)
+        ey = _extract_monitor_complex(run_fdtd, "T_fields", "Ey", diagnostics)
+
+        transmission = _extract_power_transmission(run_fdtd, "T", diagnostics)
+        raw_column_power = abs(ex) ** 2 + abs(ey) ** 2
+
+        if raw_column_power > 0:
+            scale = math.sqrt(max(transmission, 0.0) / raw_column_power)
+            diagnostics.append(
+                f"field_column_power_normalized: raw={raw_column_power}, "
+                f"target_T={transmission}, scale={scale}"
+            )
+            ex *= scale
+            ey *= scale
+        else:
+            diagnostics.append("field_column_power_normalized: skipped because raw column power is zero")
+
+        diagnostics.extend(_collect_fdtd_diagnostics(run_fdtd))
+        diagnostics.append(f"debug_after_run_save_skipped_on_success={debug_path}")
+
+        return {"Ex": ex, "Ey": ey, "transmission": transmission, "diagnostics": diagnostics}
+
     except APCDRunDiagnosticError:
         raise
+
     except Exception as exc:
-        if fdtd is not None:
-            if not run_completed:
-                debug_path = config.output.result_dir / "debug_error_state.fsp"
-            debug_path = _save_debug_fsp(fdtd, debug_path, diagnostics)
-            diagnostics.extend(_collect_fdtd_diagnostics(fdtd))
+        if run_fdtd is not None:
+            debug_path = _save_debug_fsp(run_fdtd, debug_path, diagnostics)
+            diagnostics.extend(_collect_fdtd_diagnostics(run_fdtd))
+        elif setup_fdtd is not None:
+            debug_path = _save_debug_fsp(setup_fdtd, output_dir / "debug_error_state.fsp", diagnostics)
+
         raise APCDRunDiagnosticError(
             f"{type(exc).__name__}: {exc}",
             diagnostics=diagnostics,
             debug_fsp_path=debug_path,
         ) from exc
+
     finally:
-        if fdtd is not None:
-            try:
-                fdtd.close()
-            except Exception:
-                pass
+        for fdtd in (setup_fdtd, run_fdtd):
+            if fdtd is not None:
+                try:
+                    fdtd.close()
+                except Exception:
+                    pass
 
 
 def _run_one_incidence(
@@ -759,6 +799,47 @@ def _extract_monitor_complex(
         raise
 
 
+def _extract_power_transmission(
+    fdtd: object,
+    monitor_name: str,
+    diagnostics: list[str],
+) -> float:
+    try:
+        result = fdtd.getresult(monitor_name, "T")
+        if isinstance(result, dict) and "T" in result:
+            value = _squeeze(result["T"])
+        else:
+            value = _squeeze(result)
+
+        if hasattr(value, "item"):
+            transmission = float(value.item())
+        elif isinstance(value, (list, tuple)):
+            current = value
+            while isinstance(current, (list, tuple)):
+                current = current[0]
+            transmission = float(current)
+        else:
+            transmission = float(value)
+
+        diagnostics.append(f"{monitor_name}.T: power transmission extracted={transmission}")
+        return transmission
+
+    except Exception as exc:
+        diagnostics.append(f"{monitor_name}.T: getresult('T') failed: {type(exc).__name__}: {exc}")
+
+    try:
+        value = fdtd.transmission(monitor_name)
+        if hasattr(value, "item"):
+            transmission = float(value.item())
+        else:
+            transmission = float(value)
+        diagnostics.append(f"{monitor_name}.T: fdtd.transmission fallback extracted={transmission}")
+        return transmission
+    except Exception as exc:
+        diagnostics.append(f"{monitor_name}.T: fdtd.transmission fallback failed: {type(exc).__name__}: {exc}")
+        raise
+
+
 def _component_from_monitor_result(result: object, data_name: str) -> object:
     if isinstance(result, dict) and data_name in result:
         return result[data_name]
@@ -1152,11 +1233,10 @@ def _shape_of(value: object) -> tuple[int, ...]:
 
 
 def _center_value(value: object) -> complex:
-    squeezed = _squeeze(value)
-    shape = _shape_of(squeezed)
-    if not shape:
-        return complex(squeezed)  # type: ignore[arg-type]
-    current = squeezed
-    for axis_size in shape:
-        current = current[axis_size // 2]  # type: ignore[index]
-    return complex(current)  # type: ignore[arg-type]
+    """Return spatially averaged complex field as zeroth-order approximation."""
+    import numpy as np
+
+    arr = np.array(_squeeze(value)).squeeze()
+    if arr.shape == ():
+        return complex(arr.item())
+    return complex(np.mean(arr))
