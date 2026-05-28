@@ -36,12 +36,12 @@ geometry:
     rotation_deg: -45
 
 simulation:
-  substrate_thickness_nm: 300
-  source_offset_nm: 180
-  monitor_offset_nm: 260
-  z_padding_above_nm: 420
-  mesh_accuracy: 2
-  simulation_time_fs: 1000
+  substrate_thickness_nm: 220
+  source_offset_nm: 120
+  monitor_offset_nm: 180
+  z_padding_above_nm: 260
+  mesh_accuracy: 1
+  simulation_time_fs: 250
 
 output:
   result_dir: outputs/apcd_single_dimer_633nm
