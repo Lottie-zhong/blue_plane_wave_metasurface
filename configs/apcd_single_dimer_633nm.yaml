@@ -1,0 +1,47 @@
+project:
+  name: blue_plane_wave_metasurface
+  stage: gate1_single_apcd_dimer_633nm
+
+target:
+  wavelength_nm: 633
+  incident_wave: plane_wave
+  output_basis: circular
+  eps: 1.0e-12
+  spin_er_threshold_db: 8
+  conversion_to_leakage_threshold: 6
+
+material:
+  substrate: Al2O3
+  meta_material: c-Si
+  substrate_material_lumerical: "<Object defined dielectric>"
+  meta_material_lumerical: "<Object defined dielectric>"
+  substrate_index: 1.76
+  meta_index: 3.88
+
+geometry:
+  period_x_nm: 340
+  period_y_nm: 340
+  height_nm: 300
+  nanopillar_1:
+    length_nm: 130
+    width_nm: 70
+    x_nm: -55
+    y_nm: 0
+    rotation_deg: 45
+  nanopillar_2:
+    length_nm: 150
+    width_nm: 85
+    x_nm: 55
+    y_nm: 0
+    rotation_deg: -45
+
+simulation:
+  substrate_thickness_nm: 300
+  source_offset_nm: 180
+  monitor_offset_nm: 260
+  z_padding_above_nm: 420
+  mesh_accuracy: 2
+  simulation_time_fs: 1000
+
+output:
+  result_dir: outputs/apcd_single_dimer_633nm

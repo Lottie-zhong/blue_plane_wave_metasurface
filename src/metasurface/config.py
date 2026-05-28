@@ -57,6 +57,54 @@ class PBSupercellGeometryConfig:
 
 
 @dataclass(frozen=True)
+class APCDNanopillarConfig:
+    length_nm: float
+    width_nm: float
+    x_nm: float
+    y_nm: float
+    rotation_deg: float
+
+
+@dataclass(frozen=True)
+class APCDDimerGeometryConfig:
+    period_x_nm: float
+    period_y_nm: float
+    height_nm: float
+    nanopillar_1: APCDNanopillarConfig
+    nanopillar_2: APCDNanopillarConfig
+
+
+@dataclass(frozen=True)
+class APCDDimerMaterialConfig:
+    substrate: str
+    meta_material: str
+    substrate_material_lumerical: str
+    meta_material_lumerical: str
+    substrate_index: float | None = None
+    meta_index: float | None = None
+
+
+@dataclass(frozen=True)
+class APCDDimerTargetConfig:
+    wavelength_nm: float
+    incident_wave: str
+    output_basis: str
+    eps: float
+    spin_er_threshold_db: float
+    conversion_to_leakage_threshold: float
+
+
+@dataclass(frozen=True)
+class APCDDimerSimulationConfig:
+    substrate_thickness_nm: float
+    source_offset_nm: float
+    monitor_offset_nm: float
+    z_padding_above_nm: float
+    mesh_accuracy: int
+    simulation_time_fs: float
+
+
+@dataclass(frozen=True)
 class FarFieldConfig:
     projection_direction: str
     material_index: str
@@ -128,6 +176,16 @@ class PBSupercellConfig:
     output: OutputConfig
 
 
+@dataclass(frozen=True)
+class APCDSingleDimerConfig:
+    project: ProjectConfig
+    target: APCDDimerTargetConfig
+    material: APCDDimerMaterialConfig
+    geometry: APCDDimerGeometryConfig
+    simulation: APCDDimerSimulationConfig
+    output: OutputConfig
+
+
 def load_sweep_config(path: Union[str, Path]) -> PlaneWaveSweepConfig:
     data = _read_yaml_mapping(path)
     return PlaneWaveSweepConfig(
@@ -161,6 +219,26 @@ def load_pb_supercell_config(path: Union[str, Path]) -> PBSupercellConfig:
         material=MaterialConfig(**_required_mapping(data, "material")),
         geometry=PBSupercellGeometryConfig(**_required_mapping(data, "geometry")),
         far_field=FarFieldConfig(**_required_mapping(data, "far_field")),
+        output=OutputConfig(result_dir=Path(_required_mapping(data, "output")["result_dir"])),
+    )
+
+
+def load_apcd_single_dimer_config(path: Union[str, Path]) -> APCDSingleDimerConfig:
+    data = _read_yaml_mapping(path)
+    geometry_data = _required_mapping(data, "geometry")
+    geometry = APCDDimerGeometryConfig(
+        period_x_nm=float(geometry_data["period_x_nm"]),
+        period_y_nm=float(geometry_data["period_y_nm"]),
+        height_nm=float(geometry_data["height_nm"]),
+        nanopillar_1=APCDNanopillarConfig(**_required_mapping(geometry_data, "nanopillar_1")),
+        nanopillar_2=APCDNanopillarConfig(**_required_mapping(geometry_data, "nanopillar_2")),
+    )
+    return APCDSingleDimerConfig(
+        project=ProjectConfig(**_required_mapping(data, "project")),
+        target=APCDDimerTargetConfig(**_required_mapping(data, "target")),
+        material=APCDDimerMaterialConfig(**_required_mapping(data, "material")),
+        geometry=geometry,
+        simulation=APCDDimerSimulationConfig(**_required_mapping(data, "simulation")),
         output=OutputConfig(result_dir=Path(_required_mapping(data, "output")["result_dir"])),
     )
 
