@@ -293,6 +293,10 @@ def _run_apcd_single_dimer_alpha_beta(
             "T_beta": t_beta,
             "PD": pd,
         },
+        diagnostics=[
+            *(str(item) for item in x_response.get("diagnostics", [])),
+            *(str(item) for item in y_response.get("diagnostics", [])),
+        ],
     )
 
 
@@ -304,23 +308,28 @@ def _run_one_linear_incidence(
 ) -> dict[str, complex]:
     fdtd = None
     diagnostics: list[str] = []
-    debug_path = config.output.result_dir / "debug_error_state.fsp"
+    run_completed = False
+    debug_path = config.output.result_dir / f"debug_after_run_{incident_polarization.upper()}.fsp"
     try:
         fdtd = lumapi.FDTD(hide=runtime.hide_gui)
         _build_apcd_single_dimer_model(fdtd, config, incident_polarization)
         diagnostics.extend(_model_setup_diagnostics(config, incident_polarization))
         fdtd.run()
+        run_completed = True
         diagnostics.append(f"fdtd.run completed before data extraction for {incident_polarization}")
-        diagnostics.extend(_collect_fdtd_diagnostics(fdtd))
+        diagnostics.append("switchtolayout_after_run=False")
         ex = _extract_monitor_complex(fdtd, "T_fields", "Ex", diagnostics)
         ey = _extract_monitor_complex(fdtd, "T_fields", "Ey", diagnostics)
-        return {"Ex": ex, "Ey": ey, "transmission": ""}
+        diagnostics.extend(_collect_fdtd_diagnostics(fdtd))
+        return {"Ex": ex, "Ey": ey, "transmission": "", "diagnostics": diagnostics}
     except APCDRunDiagnosticError:
         raise
     except Exception as exc:
         if fdtd is not None:
-            diagnostics.extend(_collect_fdtd_diagnostics(fdtd))
+            if not run_completed:
+                debug_path = config.output.result_dir / "debug_error_state.fsp"
             debug_path = _save_debug_fsp(fdtd, debug_path, diagnostics)
+            diagnostics.extend(_collect_fdtd_diagnostics(fdtd))
         raise APCDRunDiagnosticError(
             f"{type(exc).__name__}: {exc}",
             diagnostics=diagnostics,
@@ -690,8 +699,8 @@ def _collect_fdtd_diagnostics(fdtd: object) -> list[str]:
     diagnostics = []
     for probe_name, probe in (
         ("objects", lambda: _try_fdtd_eval(fdtd, "?getnamed;")),
-        ("T_result_probe", lambda: _try_getresult(fdtd, "T")),
-        ("T_fields_result_probe", lambda: _try_getresult(fdtd, "T_fields")),
+        ("T_result_probe", lambda: _try_getresult(fdtd, "T", "T")),
+        ("T_fields_E_result_probe", lambda: _try_getresult(fdtd, "T_fields", "E")),
         ("T_fields_Ex_probe", lambda: _try_getdata_shape(fdtd, "T_fields", "Ex")),
         ("T_fields_Ey_probe", lambda: _try_getdata_shape(fdtd, "T_fields", "Ey")),
     ):
@@ -709,10 +718,10 @@ def _try_fdtd_eval(fdtd: object, command: str) -> str:
         return f"{type(exc).__name__}: {exc}"
 
 
-def _try_getresult(fdtd: object, monitor_name: str) -> str:
+def _try_getresult(fdtd: object, monitor_name: str, result_name: str) -> str:
     try:
         if hasattr(fdtd, "getresult"):
-            value = fdtd.getresult(monitor_name)
+            value = fdtd.getresult(monitor_name, result_name)
             return _short_diagnostic_value(value)
         return "not available: fdtd.getresult missing"
     except Exception as exc:
@@ -736,11 +745,29 @@ def _extract_monitor_complex(
 ) -> complex:
     try:
         value = fdtd.getdata(monitor_name, data_name)
-        diagnostics.append(f"{monitor_name}.{data_name}: extracted")
+        diagnostics.append(f"{monitor_name}.{data_name}: getdata succeeded")
         return _center_value(_squeeze(value))
     except Exception as exc:
-        diagnostics.append(f"{monitor_name}.{data_name}: {type(exc).__name__}: {exc}")
+        diagnostics.append(f"{monitor_name}.{data_name}: getdata failed: {type(exc).__name__}: {exc}")
+    try:
+        result = fdtd.getresult(monitor_name, "E")
+        component = _component_from_monitor_result(result, data_name)
+        diagnostics.append(f"{monitor_name}.{data_name}: getresult('E') fallback succeeded")
+        return _center_value(_squeeze(component))
+    except Exception as exc:
+        diagnostics.append(f"{monitor_name}.{data_name}: getresult('E') fallback failed: {type(exc).__name__}: {exc}")
         raise
+
+
+def _component_from_monitor_result(result: object, data_name: str) -> object:
+    if isinstance(result, dict) and data_name in result:
+        return result[data_name]
+    if hasattr(result, data_name):
+        return getattr(result, data_name)
+    try:
+        return result[data_name]  # type: ignore[index]
+    except Exception as exc:
+        raise KeyError(f"{data_name} not found in T_fields E result") from exc
 
 
 def _save_debug_fsp(fdtd: object, debug_path: Path, diagnostics: list[str]) -> Path:

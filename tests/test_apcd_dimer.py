@@ -157,6 +157,9 @@ def test_apcd_fig2_lumerical_extracts_linear_and_alpha_beta_matrices() -> None:
     assert len(lumapi.fdtds) == 2
     assert lumapi.fdtds[0].events.index("run") < lumapi.fdtds[0].events.index("getdata:T_fields:Ex")
     assert lumapi.fdtds[1].events.index("run") < lumapi.fdtds[1].events.index("getdata:T_fields:Ex")
+    run_index = lumapi.fdtds[0].events.index("run")
+    ex_index = lumapi.fdtds[0].events.index("getdata:T_fields:Ex")
+    assert "switchtolayout" not in lumapi.fdtds[0].events[run_index:ex_index]
     assert lumapi.fdtds[0].transmission_called is False
     assert lumapi.fdtds[1].transmission_called is False
     assert lumapi.fdtds[0].source_angles == [0]
@@ -249,12 +252,27 @@ def test_apcd_fig2_missing_field_data_writes_diagnostic_summary_and_debug_fsp(tm
 
     assert row["status"] == "error"
     assert "T_fields" in str(row["_diagnostics"])
-    assert row["_debug_fsp_path"] == tmp_path / "debug_error_state.fsp"
-    assert lumapi.fdtds[0].saved_path == str(tmp_path / "debug_error_state.fsp")
+    assert row["_debug_fsp_path"] == tmp_path / "debug_after_run_X.fsp"
+    assert lumapi.fdtds[0].saved_path == str(tmp_path / "debug_after_run_X.fsp")
+    save_index = lumapi.fdtds[0].events.index(f"save:{tmp_path / 'debug_after_run_X.fsp'}")
+    assert "switchtolayout" not in lumapi.fdtds[0].events[lumapi.fdtds[0].events.index("run"):save_index]
     summary_text = summary_path.read_text(encoding="utf-8")
     assert "Run diagnostics" in summary_text
-    assert "debug_error_state.fsp" in summary_text
+    assert "debug_after_run_X.fsp" in summary_text
     assert "T_fields_Ex_probe" in summary_text
+
+
+def test_apcd_fig2_getdata_failure_uses_getresult_fallback() -> None:
+    config = load_apcd_single_dimer_config(REPO_ROOT / "configs" / "apcd_fig2_elliptical_633nm.yaml")
+    runtime = RuntimeConfig(mode="test", enable_lumerical=True, lumapi_python_api_dir="", hide_gui=True)
+    lumapi = _GetDataFailsGetResultSucceedsLumapi()
+
+    row = run_apcd_single_dimer_lumerical(config=config, runtime=runtime, lumapi=lumapi)
+
+    assert row["status"] == "ok"
+    assert row["t_xx"] == "0.8+0j"
+    assert any(event == "getresult:T_fields:E" for event in lumapi.fdtds[0].events)
+    assert "fallback succeeded" in str(row["_diagnostics"])
 
 
 def test_alpha_beta_transform_for_ideal_apcd_projector() -> None:
@@ -411,7 +429,7 @@ class _FakeFDTD:
         self._current_object = ""
 
     def switchtolayout(self) -> None:
-        pass
+        self.events.append("switchtolayout")
 
     def deleteall(self) -> None:
         pass
@@ -447,9 +465,14 @@ class _FakeFDTD:
         self.events.append(f"save:{path}")
         self.saved_path = path
 
-    def getresult(self, name: str) -> object:
-        self.events.append(f"getresult:{name}")
-        return {"name": name}
+    def getresult(self, name: str, result_name: str) -> object:
+        self.events.append(f"getresult:{name}:{result_name}")
+        if name == "T_fields" and result_name == "E":
+            if self.source_angles == [0]:
+                return {"Ex": [[0.8 + 0j]], "Ey": [[0 + 0.1j]]}
+            if self.source_angles == [90]:
+                return {"Ex": [[0.2 + 0j]], "Ey": [[0.7 + 0j]]}
+        return {"name": name, "result": result_name}
 
     def transmission(self, _name: str) -> float:
         self.events.append(f"transmission:{_name}")
@@ -500,3 +523,25 @@ class _MissingFieldFDTD(_FakeFDTD):
         self.events.append(f"getdata:{_name}:{data_name}")
         self.getdata_called = True
         raise RuntimeError(f"missing monitor data: {_name}.{data_name}")
+
+    def getresult(self, name: str, result_name: str) -> object:
+        self.events.append(f"getresult:{name}:{result_name}")
+        raise RuntimeError(f"missing result data: {name}.{result_name}")
+
+
+class _GetDataFailsGetResultSucceedsLumapi:
+    def __init__(self) -> None:
+        self.fdtds: list[_GetDataFailsGetResultSucceedsFDTD] = []
+
+    def FDTD(self, hide: bool) -> "_GetDataFailsGetResultSucceedsFDTD":
+        fdtd = _GetDataFailsGetResultSucceedsFDTD()
+        fdtd.hide = hide
+        self.fdtds.append(fdtd)
+        return fdtd
+
+
+class _GetDataFailsGetResultSucceedsFDTD(_FakeFDTD):
+    def getdata(self, _name: str, data_name: str) -> object:
+        self.events.append(f"getdata:{_name}:{data_name}")
+        self.getdata_called = True
+        raise RuntimeError(f"getdata unavailable: {_name}.{data_name}")
