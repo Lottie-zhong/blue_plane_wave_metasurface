@@ -17,11 +17,17 @@ if str(SRC_DIR) not in sys.path:
 from metasurface.apcd_dimer import (
     APCD_DIMER_RESULT_FIELDS,
     APCDSingleDimerRunner,
+    apcd_alpha_beta_basis,
+    jones_matrix_alpha_beta_basis,
+    jones_matrix_linear_basis,
     run_apcd_single_dimer_lumerical,
     run_apcd_single_dimer_setup_only,
+    transform_linear_jones_to_alpha_beta,
     validate_apcd_single_dimer_geometry,
     write_apcd_single_dimer_results,
     write_apcd_single_dimer_summary,
+    write_jones_matrix_alpha_beta_basis_npy,
+    write_jones_matrix_linear_basis_npy,
 )
 from metasurface.config import RuntimeConfig, load_apcd_single_dimer_config
 
@@ -140,6 +146,98 @@ def test_apcd_single_dimer_lumerical_extracts_circular_matrix() -> None:
     assert lumapi.fdtds[0].rotations == [67.5, 112.5]
 
 
+def test_apcd_fig2_lumerical_extracts_linear_and_alpha_beta_matrices() -> None:
+    config = load_apcd_single_dimer_config(REPO_ROOT / "configs" / "apcd_fig2_elliptical_633nm.yaml")
+    runtime = RuntimeConfig(mode="test", enable_lumerical=True, lumapi_python_api_dir="", hide_gui=True)
+    lumapi = _FakeLumapi()
+
+    row = run_apcd_single_dimer_lumerical(config=config, runtime=runtime, lumapi=lumapi)
+
+    assert row["status"] == "ok"
+    assert len(lumapi.fdtds) == 2
+    assert lumapi.fdtds[0].source_angles == [0]
+    assert lumapi.fdtds[1].source_angles == [90]
+    assert lumapi.fdtds[0].source_phases == [0]
+    assert lumapi.fdtds[1].source_phases == [0]
+    assert row["spin_ER_dB"] == ""
+    assert row["T_R_from_L"] == ""
+    assert row["t_xx"] == "0.8+0j"
+    assert row["t_xy"] == "0.2+0j"
+    assert row["t_yx"] == "0+0.1j"
+    assert row["t_yy"] == "0.7+0j"
+    expected_linear = [[0.8 + 0j, 0.2 + 0j], [0 + 0.1j, 0.7 + 0j]]
+    expected_alpha_beta = transform_linear_jones_to_alpha_beta(
+        expected_linear,
+        psi_deg=112.5,
+        chi_deg=22.5,
+    )
+    assert jones_matrix_linear_basis(row) == expected_linear
+    for row_index in range(2):
+        for column_index in range(2):
+            assert abs(
+                jones_matrix_alpha_beta_basis(row)[row_index][column_index]
+                - expected_alpha_beta[row_index][column_index]
+            ) < 1e-12
+    assert float(row["T_alpha"]) >= 0
+    assert float(row["T_beta"]) >= 0
+    assert -1 <= float(row["PD"]) <= 1
+
+
+def test_apcd_fig2_results_fields_include_paper_metrics(tmp_path: Path) -> None:
+    config = load_apcd_single_dimer_config(REPO_ROOT / "configs" / "apcd_fig2_elliptical_633nm.yaml")
+    runtime = RuntimeConfig(mode="test", enable_lumerical=True, lumapi_python_api_dir="", hide_gui=True)
+    row = run_apcd_single_dimer_lumerical(config=config, runtime=runtime, lumapi=_FakeLumapi())
+
+    results_path = write_apcd_single_dimer_results(row, tmp_path / "results.csv")
+
+    with results_path.open("r", newline="", encoding="utf-8") as handle:
+        reader = csv.DictReader(handle)
+        loaded_rows = list(reader)
+    for field in (
+        "t_alpha_star_from_alpha",
+        "t_beta_star_from_alpha",
+        "t_alpha_star_from_beta",
+        "t_beta_star_from_beta",
+        "T_alpha",
+        "T_beta",
+        "PD",
+    ):
+        assert field in reader.fieldnames
+        assert loaded_rows[0][field] != ""
+
+
+def test_apcd_fig2_writes_required_jones_npy_files(tmp_path: Path) -> None:
+    config = load_apcd_single_dimer_config(REPO_ROOT / "configs" / "apcd_fig2_elliptical_633nm.yaml")
+    runtime = RuntimeConfig(mode="test", enable_lumerical=True, lumapi_python_api_dir="", hide_gui=True)
+    row = run_apcd_single_dimer_lumerical(config=config, runtime=runtime, lumapi=_FakeLumapi())
+
+    linear_path = write_jones_matrix_linear_basis_npy(row, tmp_path / "jones_matrix_linear_basis.npy")
+    alpha_beta_path = write_jones_matrix_alpha_beta_basis_npy(row, tmp_path / "jones_matrix_alpha_beta_basis.npy")
+
+    assert linear_path.exists()
+    assert alpha_beta_path.exists()
+
+
+def test_alpha_beta_transform_for_ideal_apcd_projector() -> None:
+    config = load_apcd_single_dimer_config(REPO_ROOT / "configs" / "apcd_fig2_elliptical_633nm.yaml")
+    basis = apcd_alpha_beta_basis(psi_deg=config.target.psi_deg, chi_deg=config.target.chi_deg)
+    alpha = basis["alpha"]
+    alpha_star = basis["alpha_star"]
+    ideal_linear = [
+        [alpha_star[0] * alpha[0].conjugate(), alpha_star[0] * alpha[1].conjugate()],
+        [alpha_star[1] * alpha[0].conjugate(), alpha_star[1] * alpha[1].conjugate()],
+    ]
+    transformed = transform_linear_jones_to_alpha_beta(
+        ideal_linear,
+        psi_deg=config.target.psi_deg,
+        chi_deg=config.target.chi_deg,
+    )
+    assert abs(transformed[0][0] - 1) < 1e-12
+    assert abs(transformed[1][0]) < 1e-12
+    assert abs(transformed[0][1]) < 1e-12
+    assert abs(transformed[1][1]) < 1e-12
+
+
 def test_apcd_single_dimer_geometry_validation_estimates_gap() -> None:
     config = load_apcd_single_dimer_config(REPO_ROOT / "configs" / "apcd_fig2_elliptical_633nm.yaml")
 
@@ -220,7 +318,8 @@ def test_apcd_single_dimer_setup_only_saves_fsp_without_run(tmp_path: Path) -> N
     assert lumapi.fdtds[0].saved_path == str(fsp_output)
     assert lumapi.fdtds[0].run_called is False
     assert lumapi.fdtds[0].getdata_called is False
-    assert lumapi.fdtds[0].source_phases == [0, 90]
+    assert lumapi.fdtds[0].source_angles == [0]
+    assert lumapi.fdtds[0].source_phases == [0]
 
 
 def test_apcd_single_dimer_setup_only_does_not_save_invalid_geometry(tmp_path: Path) -> None:
@@ -266,6 +365,7 @@ class _FakeFDTD:
         self.getdata_called = False
         self.saved_path = ""
         self.source_phases: list[float] = []
+        self.source_angles: list[float] = []
         self.rotations: list[float] = []
         self._current_object = ""
 
@@ -293,6 +393,8 @@ class _FakeFDTD:
     def set(self, name: str, value: object) -> None:
         if self._current_object == "rect" and name == "rotation 1":
             self.rotations.append(float(value))
+        if self._current_object == "plane" and name == "polarization angle":
+            self.source_angles.append(float(value))
         if self._current_object == "plane" and name == "phase":
             self.source_phases.append(float(value))
 
@@ -303,10 +405,24 @@ class _FakeFDTD:
         self.saved_path = path
 
     def transmission(self, _name: str) -> float:
+        if self.source_angles == [0]:
+            return 0.64
+        if self.source_angles == [90]:
+            return 0.49
         return 0.9 if self.source_phases == [0, 90] else 0.1
 
     def getdata(self, _name: str, data_name: str) -> object:
         self.getdata_called = True
+        if self.source_angles == [0]:
+            if data_name == "Ex":
+                return [[0.8 + 0j]]
+            if data_name == "Ey":
+                return [[0 + 0.1j]]
+        if self.source_angles == [90]:
+            if data_name == "Ex":
+                return [[0.2 + 0j]]
+            if data_name == "Ey":
+                return [[0.7 + 0j]]
         if self.source_phases == [0, 90]:
             if data_name == "Ex":
                 return [[1 / math.sqrt(2)]]

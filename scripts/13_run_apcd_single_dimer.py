@@ -14,6 +14,8 @@ from metasurface.apcd_dimer import (
     APCDSingleDimerRunner,
     write_apcd_single_dimer_results,
     write_apcd_single_dimer_summary,
+    write_jones_matrix_alpha_beta_basis_npy,
+    write_jones_matrix_linear_basis_npy,
     write_jones_matrix_npy,
 )
 from metasurface.config import load_apcd_single_dimer_config
@@ -53,13 +55,19 @@ def main() -> int:
         results_path = write_apcd_single_dimer_results(row, result_dir / "results.csv")
         summary_path = write_apcd_single_dimer_summary(row, result_dir / "summary.md")
         if not args.dry_run and row["status"] == "ok":
-            write_jones_matrix_npy(row, result_dir / "jones_matrix_circular_basis.npy")
+            if config.target.output_basis == "alpha_beta":
+                write_jones_matrix_linear_basis_npy(row, result_dir / "jones_matrix_linear_basis.npy")
+                write_jones_matrix_alpha_beta_basis_npy(row, result_dir / "jones_matrix_alpha_beta_basis.npy")
+            else:
+                write_jones_matrix_npy(row, result_dir / "jones_matrix_circular_basis.npy")
 
     print(f"status={row['status']}")
     print(f"gate_pass={row['gate_pass']}")
     print(f"target_conversion={row['target_conversion']}")
     print(f"opposite_spin_leakage={row['opposite_spin_leakage']}")
     print(f"spin_ER_dB={row['spin_ER_dB']}")
+    if row.get("PD", "") != "":
+        print(f"PD={row['PD']}")
     if results_path:
         print(f"results={results_path}")
     if summary_path:

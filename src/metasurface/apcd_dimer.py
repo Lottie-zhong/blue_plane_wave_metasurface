@@ -23,13 +23,29 @@ APCD_DIMER_RESULT_FIELDS = [
     "period_x_nm",
     "period_y_nm",
     "height_nm",
+    "target_polarization_type",
+    "psi_deg",
+    "chi_deg",
     "transmission_lcp",
     "transmission_rcp",
+    "transmission_x",
+    "transmission_y",
     "total_transmission",
     "T_R_from_L",
     "T_L_from_L",
     "T_R_from_R",
     "T_L_from_R",
+    "t_xx",
+    "t_xy",
+    "t_yx",
+    "t_yy",
+    "t_alpha_star_from_alpha",
+    "t_beta_star_from_alpha",
+    "t_alpha_star_from_beta",
+    "t_beta_star_from_beta",
+    "T_alpha",
+    "T_beta",
+    "PD",
     "target_conversion",
     "opposite_spin_leakage",
     "conversion_to_leakage_ratio",
@@ -113,11 +129,10 @@ def run_apcd_single_dimer_lumerical(
     lumapi: ModuleType,
 ) -> dict[str, object]:
     try:
+        if config.target.output_basis == "alpha_beta":
+            return _run_apcd_single_dimer_alpha_beta(config, runtime, lumapi)
         if config.target.output_basis != "circular":
-            raise NotImplementedError(
-                "Real-run extraction for APCD alpha/beta basis is not implemented yet; "
-                "do not evaluate the paper Fig. 2 elliptical baseline with circular R/L metrics."
-            )
+            raise ValueError(f"Unsupported APCD output_basis: {config.target.output_basis}")
         matrix = {
             "L": _run_one_incidence(config, runtime, lumapi, incident_polarization="LCP"),
             "R": _run_one_incidence(config, runtime, lumapi, incident_polarization="RCP"),
@@ -165,7 +180,8 @@ def run_apcd_single_dimer_setup_only(
     output_path = Path(fsp_output)
     try:
         fdtd = lumapi.FDTD(hide=runtime.hide_gui)
-        _build_apcd_single_dimer_model(fdtd, config, incident_polarization="LCP")
+        incident_polarization = "X" if config.target.output_basis == "alpha_beta" else "LCP"
+        _build_apcd_single_dimer_model(fdtd, config, incident_polarization=incident_polarization)
         output_path.parent.mkdir(parents=True, exist_ok=True)
         fdtd.save(str(output_path))
         return _result_row(
@@ -199,6 +215,61 @@ def run_apcd_single_dimer_setup_only(
                 pass
 
 
+def _run_apcd_single_dimer_alpha_beta(
+    config: APCDSingleDimerConfig,
+    runtime: RuntimeConfig,
+    lumapi: ModuleType,
+) -> dict[str, object]:
+    if config.target.psi_deg is None or config.target.chi_deg is None:
+        raise ValueError("APCD alpha/beta extraction requires target.psi_deg and target.chi_deg")
+    x_response = _run_one_incidence(config, runtime, lumapi, incident_polarization="X")
+    y_response = _run_one_incidence(config, runtime, lumapi, incident_polarization="Y")
+    jones_linear = [
+        [x_response["Ex"], y_response["Ex"]],
+        [x_response["Ey"], y_response["Ey"]],
+    ]
+    jones_alpha_beta = transform_linear_jones_to_alpha_beta(
+        jones_linear,
+        psi_deg=config.target.psi_deg,
+        chi_deg=config.target.chi_deg,
+    )
+    t_alpha_star_from_alpha = jones_alpha_beta[0][0]
+    t_beta_star_from_alpha = jones_alpha_beta[1][0]
+    t_alpha_star_from_beta = jones_alpha_beta[0][1]
+    t_beta_star_from_beta = jones_alpha_beta[1][1]
+    t_alpha = abs(t_alpha_star_from_alpha) ** 2 + abs(t_beta_star_from_alpha) ** 2
+    t_beta = abs(t_alpha_star_from_beta) ** 2 + abs(t_beta_star_from_beta) ** 2
+    pd = (t_alpha - t_beta) / (t_alpha + t_beta + config.target.eps)
+    return _result_row(
+        config=config,
+        matrix={},
+        target_conversion=t_alpha,
+        opposite_spin_leakage=t_beta,
+        ratio=(t_alpha + config.target.eps) / (t_beta + config.target.eps),
+        spin_er_db="",
+        gate_pass="",
+        status="ok",
+        note=(
+            "APCD paper basis: J_alpha_beta rows are alpha*, beta* outputs; "
+            "columns are alpha, beta inputs. Linear Jones columns came from x- and y-polarized normal incidence."
+        ),
+        linear_matrix={
+            "x": x_response,
+            "y": y_response,
+        },
+        alpha_beta_matrix=jones_alpha_beta,
+        alpha_beta_metrics={
+            "t_alpha_star_from_alpha": t_alpha_star_from_alpha,
+            "t_beta_star_from_alpha": t_beta_star_from_alpha,
+            "t_alpha_star_from_beta": t_alpha_star_from_beta,
+            "t_beta_star_from_beta": t_beta_star_from_beta,
+            "T_alpha": t_alpha,
+            "T_beta": t_beta,
+            "PD": pd,
+        },
+    )
+
+
 def _run_one_incidence(
     config: APCDSingleDimerConfig,
     runtime: RuntimeConfig,
@@ -213,6 +284,8 @@ def _run_one_incidence(
         transmission = _safe_float(fdtd.transmission("T"))
         ex = _center_value(_squeeze(fdtd.getdata("T_fields", "Ex")))
         ey = _center_value(_squeeze(fdtd.getdata("T_fields", "Ey")))
+        if incident_polarization.upper() in {"X", "Y"}:
+            return {"Ex": ex, "Ey": ey, "transmission": transmission}
         e_r = (ex + 1j * ey) / math.sqrt(2)
         e_l = (ex - 1j * ey) / math.sqrt(2)
         return {"R": e_r, "L": e_l, "transmission": transmission}
@@ -273,7 +346,7 @@ def _build_apcd_single_dimer_model(
 
     _add_nanopillar(fdtd, config, config.geometry.nanopillar_1, "nanopillar_1")
     _add_nanopillar(fdtd, config, config.geometry.nanopillar_2, "nanopillar_2")
-    _add_circular_plane_wave_sources(fdtd, config, incident_polarization, period_x, period_y, source_z, wavelength)
+    _add_plane_wave_sources(fdtd, config, incident_polarization, period_x, period_y, source_z, wavelength)
 
     fdtd.addpower()
     fdtd.set("name", "T")
@@ -505,7 +578,7 @@ def _dot(point_1: tuple[float, float], point_2: tuple[float, float]) -> float:
     return point_1[0] * point_2[0] + point_1[1] * point_2[1]
 
 
-def _add_circular_plane_wave_sources(
+def _add_plane_wave_sources(
     fdtd: object,
     config: APCDSingleDimerConfig,
     incident_polarization: str,
@@ -515,14 +588,18 @@ def _add_circular_plane_wave_sources(
     wavelength: float,
 ) -> None:
     normalized = incident_polarization.lower()
-    if normalized not in {"lcp", "rcp"}:
+    if normalized not in {"lcp", "rcp", "x", "y"}:
         raise ValueError(f"Unsupported incident polarization: {incident_polarization}")
-    y_phase_deg = 90 if normalized == "lcp" else -90
-    amplitude = 1 / math.sqrt(2)
-    for name, polarization_angle, phase in (
-        ("source_x", 0, 0),
-        ("source_y", 90, y_phase_deg),
-    ):
+    if normalized in {"x", "y"}:
+        source_specs = ((f"source_{normalized}", 0 if normalized == "x" else 90, 0, 1),)
+    else:
+        y_phase_deg = 90 if normalized == "lcp" else -90
+        amplitude = 1 / math.sqrt(2)
+        source_specs = (
+            ("source_x", 0, 0, amplitude),
+            ("source_y", 90, y_phase_deg, amplitude),
+        )
+    for name, polarization_angle, phase, amplitude in source_specs:
         fdtd.addplane()
         fdtd.set("name", name)
         fdtd.set("injection axis", "z")
@@ -535,6 +612,58 @@ def _add_circular_plane_wave_sources(
         fdtd.set("polarization angle", polarization_angle)
         fdtd.set("phase", phase)
         fdtd.set("amplitude", amplitude)
+
+
+def apcd_alpha_beta_basis(psi_deg: float, chi_deg: float) -> dict[str, tuple[complex, complex]]:
+    psi = math.radians(psi_deg)
+    chi = math.radians(chi_deg)
+    alpha = (
+        math.cos(chi) * math.cos(psi) - 1j * math.sin(chi) * math.sin(psi),
+        math.cos(chi) * math.sin(psi) + 1j * math.sin(chi) * math.cos(psi),
+    )
+    beta = (-alpha[1].conjugate(), alpha[0].conjugate())
+    return {
+        "alpha": alpha,
+        "beta": beta,
+        "alpha_star": (alpha[0].conjugate(), alpha[1].conjugate()),
+        "beta_star": (beta[0].conjugate(), beta[1].conjugate()),
+    }
+
+
+def transform_linear_jones_to_alpha_beta(
+    jones_linear: list[list[complex]],
+    *,
+    psi_deg: float,
+    chi_deg: float,
+) -> list[list[complex]]:
+    basis = apcd_alpha_beta_basis(psi_deg, chi_deg)
+    input_basis = [basis["alpha"], basis["beta"]]
+    output_basis = [basis["alpha_star"], basis["beta_star"]]
+    transformed: list[list[complex]] = []
+    for output_vector in output_basis:
+        row = []
+        for input_vector in input_basis:
+            linear_output = _matrix_vector_product(jones_linear, input_vector)
+            row.append(_inner_product(output_vector, linear_output))
+        transformed.append(row)
+    return transformed
+
+
+def _matrix_vector_product(
+    matrix: list[list[complex]],
+    vector: tuple[complex, complex],
+) -> tuple[complex, complex]:
+    return (
+        matrix[0][0] * vector[0] + matrix[0][1] * vector[1],
+        matrix[1][0] * vector[0] + matrix[1][1] * vector[1],
+    )
+
+
+def _inner_product(
+    basis_vector: tuple[complex, complex],
+    field_vector: tuple[complex, complex],
+) -> complex:
+    return basis_vector[0].conjugate() * field_vector[0] + basis_vector[1].conjugate() * field_vector[1]
 
 
 def _set_material(fdtd: object, material: APCDDimerMaterialConfig, is_substrate: bool) -> None:
@@ -555,20 +684,42 @@ def _result_row(
     gate_pass: object,
     status: str,
     note: str,
+    linear_matrix: Optional[dict[str, dict[str, complex]]] = None,
+    alpha_beta_matrix: Optional[list[list[complex]]] = None,
+    alpha_beta_metrics: Optional[dict[str, object]] = None,
 ) -> dict[str, object]:
     geometry_validation = _safe_geometry_validation(config)
+    linear_matrix = linear_matrix or {}
+    alpha_beta_matrix = alpha_beta_matrix or [["", ""], ["", ""]]
+    alpha_beta_metrics = alpha_beta_metrics or {}
     return {
         "wavelength_nm": config.target.wavelength_nm,
         "period_x_nm": config.geometry.period_x_nm,
         "period_y_nm": config.geometry.period_y_nm,
         "height_nm": config.geometry.height_nm,
+        "target_polarization_type": config.target.target_polarization_type,
+        "psi_deg": config.target.psi_deg if config.target.psi_deg is not None else "",
+        "chi_deg": config.target.chi_deg if config.target.chi_deg is not None else "",
         "transmission_lcp": matrix.get("L", {}).get("transmission", ""),
         "transmission_rcp": matrix.get("R", {}).get("transmission", ""),
-        "total_transmission": _mean_transmission(matrix),
+        "transmission_x": linear_matrix.get("x", {}).get("transmission", ""),
+        "transmission_y": linear_matrix.get("y", {}).get("transmission", ""),
+        "total_transmission": _mean_transmission(matrix) if matrix else _mean_transmission(linear_matrix),
         "T_R_from_L": _complex_text(matrix.get("L", {}).get("R", "")),
         "T_L_from_L": _complex_text(matrix.get("L", {}).get("L", "")),
         "T_R_from_R": _complex_text(matrix.get("R", {}).get("R", "")),
         "T_L_from_R": _complex_text(matrix.get("R", {}).get("L", "")),
+        "t_xx": _complex_text(linear_matrix.get("x", {}).get("Ex", "")),
+        "t_xy": _complex_text(linear_matrix.get("y", {}).get("Ex", "")),
+        "t_yx": _complex_text(linear_matrix.get("x", {}).get("Ey", "")),
+        "t_yy": _complex_text(linear_matrix.get("y", {}).get("Ey", "")),
+        "t_alpha_star_from_alpha": _complex_text(alpha_beta_matrix[0][0]),
+        "t_beta_star_from_alpha": _complex_text(alpha_beta_matrix[1][0]),
+        "t_alpha_star_from_beta": _complex_text(alpha_beta_matrix[0][1]),
+        "t_beta_star_from_beta": _complex_text(alpha_beta_matrix[1][1]),
+        "T_alpha": alpha_beta_metrics.get("T_alpha", ""),
+        "T_beta": alpha_beta_metrics.get("T_beta", ""),
+        "PD": alpha_beta_metrics.get("PD", ""),
         "target_conversion": target_conversion,
         "opposite_spin_leakage": opposite_spin_leakage,
         "conversion_to_leakage_ratio": ratio,
@@ -578,7 +729,18 @@ def _result_row(
         "note": note,
         "_config": config,
         "_geometry_validation": geometry_validation,
+        "_jones_matrix_linear_basis": _linear_matrix_values(linear_matrix),
+        "_jones_matrix_alpha_beta_basis": alpha_beta_matrix,
     }
+
+
+def _linear_matrix_values(linear_matrix: dict[str, dict[str, complex]]) -> list[list[complex]]:
+    if not linear_matrix:
+        return [["", ""], ["", ""]]
+    return [
+        [linear_matrix.get("x", {}).get("Ex", ""), linear_matrix.get("y", {}).get("Ex", "")],
+        [linear_matrix.get("x", {}).get("Ey", ""), linear_matrix.get("y", {}).get("Ey", "")],
+    ]
 
 
 def _safe_geometry_validation(config: APCDSingleDimerConfig) -> APCDGeometryValidation | None:
@@ -593,6 +755,35 @@ def jones_matrix_circular_basis(row: dict[str, object]) -> list[list[complex]]:
         [_parse_complex(row["T_R_from_L"]), _parse_complex(row["T_R_from_R"])],
         [_parse_complex(row["T_L_from_L"]), _parse_complex(row["T_L_from_R"])],
     ]
+
+
+def jones_matrix_linear_basis(row: dict[str, object]) -> list[list[complex]]:
+    matrix = row.get("_jones_matrix_linear_basis")
+    if _is_complex_matrix(matrix):
+        return matrix  # type: ignore[return-value]
+    return [
+        [_parse_complex(row["t_xx"]), _parse_complex(row["t_xy"])],
+        [_parse_complex(row["t_yx"]), _parse_complex(row["t_yy"])],
+    ]
+
+
+def jones_matrix_alpha_beta_basis(row: dict[str, object]) -> list[list[complex]]:
+    matrix = row.get("_jones_matrix_alpha_beta_basis")
+    if _is_complex_matrix(matrix):
+        return matrix  # type: ignore[return-value]
+    return [
+        [_parse_complex(row["t_alpha_star_from_alpha"]), _parse_complex(row["t_alpha_star_from_beta"])],
+        [_parse_complex(row["t_beta_star_from_alpha"]), _parse_complex(row["t_beta_star_from_beta"])],
+    ]
+
+
+def _is_complex_matrix(value: object) -> bool:
+    return (
+        isinstance(value, list)
+        and len(value) == 2
+        and all(isinstance(row, list) and len(row) == 2 for row in value)
+        and all(value[row][column] != "" for row in range(2) for column in range(2))
+    )
 
 
 def write_apcd_single_dimer_results(row: dict[str, object], output_path: Union[str, Path]) -> Path:
@@ -618,6 +809,13 @@ def write_apcd_single_dimer_summary(row: dict[str, object], output_path: Union[s
         f"- opposite_spin_leakage: {row['opposite_spin_leakage']}",
         f"- conversion_to_leakage_ratio: {row['conversion_to_leakage_ratio']}",
         f"- spin_ER_dB: {row['spin_ER_dB']}",
+        f"- t_alpha_star_from_alpha: {row['t_alpha_star_from_alpha']}",
+        f"- t_beta_star_from_alpha: {row['t_beta_star_from_alpha']}",
+        f"- t_alpha_star_from_beta: {row['t_alpha_star_from_beta']}",
+        f"- t_beta_star_from_beta: {row['t_beta_star_from_beta']}",
+        f"- T_alpha: {row['T_alpha']}",
+        f"- T_beta: {row['T_beta']}",
+        f"- PD: {row['PD']}",
         f"- total_transmission: {row['total_transmission']}",
         f"- gate_pass: {row['gate_pass']}",
         f"- note: {row['note']}",
@@ -677,7 +875,7 @@ def write_apcd_single_dimer_summary(row: dict[str, object], output_path: Union[s
             "- results.csv",
             "- summary.md",
             "- metrics: t_alpha_star_from_alpha, t_beta_star_from_alpha, t_alpha_star_from_beta, t_beta_star_from_beta, T_alpha, T_beta, PD.",
-            "- note: the paper Fig. 2 elliptical baseline should not be evaluated only with circular R/L metrics.",
+            "- note: the paper Fig. 2 elliptical baseline is evaluated with x/y linear-basis Jones extraction and alpha/beta basis metrics, not only circular R/L metrics.",
         ]
     )
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -690,6 +888,26 @@ def write_jones_matrix_npy(row: dict[str, object], output_path: Union[str, Path]
     path = Path(output_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     matrix = np.array(jones_matrix_circular_basis(row), dtype=np.complex128)
+    np.save(path, matrix)
+    return path
+
+
+def write_jones_matrix_linear_basis_npy(row: dict[str, object], output_path: Union[str, Path]) -> Path:
+    import numpy as np
+
+    path = Path(output_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    matrix = np.array(jones_matrix_linear_basis(row), dtype=np.complex128)
+    np.save(path, matrix)
+    return path
+
+
+def write_jones_matrix_alpha_beta_basis_npy(row: dict[str, object], output_path: Union[str, Path]) -> Path:
+    import numpy as np
+
+    path = Path(output_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    matrix = np.array(jones_matrix_alpha_beta_basis(row), dtype=np.complex128)
     np.save(path, matrix)
     return path
 
