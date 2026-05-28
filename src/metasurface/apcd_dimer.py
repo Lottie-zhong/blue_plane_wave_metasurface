@@ -66,6 +66,18 @@ class APCDGeometryValidation:
     passed: bool = True
 
 
+class APCDRunDiagnosticError(RuntimeError):
+    def __init__(
+        self,
+        message: str,
+        diagnostics: list[str],
+        debug_fsp_path: Optional[Path] = None,
+    ) -> None:
+        super().__init__(message)
+        self.diagnostics = diagnostics
+        self.debug_fsp_path = debug_fsp_path
+
+
 @dataclass(frozen=True)
 class APCDSingleDimerRunner:
     config: APCDSingleDimerConfig
@@ -156,6 +168,20 @@ def run_apcd_single_dimer_lumerical(
             status="ok",
             note="Circular basis convention: R=(Ex+iEy)/sqrt(2), L=(Ex-iEy)/sqrt(2)",
         )
+    except APCDRunDiagnosticError as exc:
+        return _result_row(
+            config=config,
+            matrix={},
+            target_conversion="",
+            opposite_spin_leakage="",
+            ratio="",
+            spin_er_db="",
+            gate_pass=False,
+            status="error",
+            note=f"{type(exc).__name__}: {exc}",
+            diagnostics=exc.diagnostics,
+            debug_fsp_path=exc.debug_fsp_path,
+        )
     except Exception as exc:
         return _result_row(
             config=config,
@@ -222,8 +248,8 @@ def _run_apcd_single_dimer_alpha_beta(
 ) -> dict[str, object]:
     if config.target.psi_deg is None or config.target.chi_deg is None:
         raise ValueError("APCD alpha/beta extraction requires target.psi_deg and target.chi_deg")
-    x_response = _run_one_incidence(config, runtime, lumapi, incident_polarization="X")
-    y_response = _run_one_incidence(config, runtime, lumapi, incident_polarization="Y")
+    x_response = _run_one_linear_incidence(config, runtime, lumapi, incident_polarization="X")
+    y_response = _run_one_linear_incidence(config, runtime, lumapi, incident_polarization="Y")
     jones_linear = [
         [x_response["Ex"], y_response["Ex"]],
         [x_response["Ey"], y_response["Ey"]],
@@ -270,6 +296,44 @@ def _run_apcd_single_dimer_alpha_beta(
     )
 
 
+def _run_one_linear_incidence(
+    config: APCDSingleDimerConfig,
+    runtime: RuntimeConfig,
+    lumapi: ModuleType,
+    incident_polarization: str,
+) -> dict[str, complex]:
+    fdtd = None
+    diagnostics: list[str] = []
+    debug_path = config.output.result_dir / "debug_error_state.fsp"
+    try:
+        fdtd = lumapi.FDTD(hide=runtime.hide_gui)
+        _build_apcd_single_dimer_model(fdtd, config, incident_polarization)
+        diagnostics.extend(_model_setup_diagnostics(config, incident_polarization))
+        fdtd.run()
+        diagnostics.append(f"fdtd.run completed before data extraction for {incident_polarization}")
+        diagnostics.extend(_collect_fdtd_diagnostics(fdtd))
+        ex = _extract_monitor_complex(fdtd, "T_fields", "Ex", diagnostics)
+        ey = _extract_monitor_complex(fdtd, "T_fields", "Ey", diagnostics)
+        return {"Ex": ex, "Ey": ey, "transmission": ""}
+    except APCDRunDiagnosticError:
+        raise
+    except Exception as exc:
+        if fdtd is not None:
+            diagnostics.extend(_collect_fdtd_diagnostics(fdtd))
+            debug_path = _save_debug_fsp(fdtd, debug_path, diagnostics)
+        raise APCDRunDiagnosticError(
+            f"{type(exc).__name__}: {exc}",
+            diagnostics=diagnostics,
+            debug_fsp_path=debug_path,
+        ) from exc
+    finally:
+        if fdtd is not None:
+            try:
+                fdtd.close()
+            except Exception:
+                pass
+
+
 def _run_one_incidence(
     config: APCDSingleDimerConfig,
     runtime: RuntimeConfig,
@@ -284,8 +348,6 @@ def _run_one_incidence(
         transmission = _safe_float(fdtd.transmission("T"))
         ex = _center_value(_squeeze(fdtd.getdata("T_fields", "Ex")))
         ey = _center_value(_squeeze(fdtd.getdata("T_fields", "Ey")))
-        if incident_polarization.upper() in {"X", "Y"}:
-            return {"Ex": ex, "Ey": ey, "transmission": transmission}
         e_r = (ex + 1j * ey) / math.sqrt(2)
         e_l = (ex - 1j * ey) / math.sqrt(2)
         return {"R": e_r, "L": e_l, "transmission": transmission}
@@ -614,6 +676,92 @@ def _add_plane_wave_sources(
         fdtd.set("amplitude", amplitude)
 
 
+def _model_setup_diagnostics(config: APCDSingleDimerConfig, incident_polarization: str) -> list[str]:
+    return [
+        f"incident_polarization={incident_polarization}",
+        "expected_power_monitor=T",
+        "expected_field_monitor=T_fields",
+        f"output_basis={config.target.output_basis}",
+        f"result_dir={config.output.result_dir}",
+    ]
+
+
+def _collect_fdtd_diagnostics(fdtd: object) -> list[str]:
+    diagnostics = []
+    for probe_name, probe in (
+        ("objects", lambda: _try_fdtd_eval(fdtd, "?getnamed;")),
+        ("T_result_probe", lambda: _try_getresult(fdtd, "T")),
+        ("T_fields_result_probe", lambda: _try_getresult(fdtd, "T_fields")),
+        ("T_fields_Ex_probe", lambda: _try_getdata_shape(fdtd, "T_fields", "Ex")),
+        ("T_fields_Ey_probe", lambda: _try_getdata_shape(fdtd, "T_fields", "Ey")),
+    ):
+        diagnostics.append(f"{probe_name}: {probe()}")
+    return diagnostics
+
+
+def _try_fdtd_eval(fdtd: object, command: str) -> str:
+    try:
+        if hasattr(fdtd, "eval"):
+            value = fdtd.eval(command)
+            return _short_diagnostic_value(value)
+        return "not available: fdtd.eval missing"
+    except Exception as exc:
+        return f"{type(exc).__name__}: {exc}"
+
+
+def _try_getresult(fdtd: object, monitor_name: str) -> str:
+    try:
+        if hasattr(fdtd, "getresult"):
+            value = fdtd.getresult(monitor_name)
+            return _short_diagnostic_value(value)
+        return "not available: fdtd.getresult missing"
+    except Exception as exc:
+        return f"{type(exc).__name__}: {exc}"
+
+
+def _try_getdata_shape(fdtd: object, monitor_name: str, data_name: str) -> str:
+    try:
+        value = fdtd.getdata(monitor_name, data_name)
+        shape = _shape_of(_squeeze(value))
+        return f"available shape={shape}"
+    except Exception as exc:
+        return f"{type(exc).__name__}: {exc}"
+
+
+def _extract_monitor_complex(
+    fdtd: object,
+    monitor_name: str,
+    data_name: str,
+    diagnostics: list[str],
+) -> complex:
+    try:
+        value = fdtd.getdata(monitor_name, data_name)
+        diagnostics.append(f"{monitor_name}.{data_name}: extracted")
+        return _center_value(_squeeze(value))
+    except Exception as exc:
+        diagnostics.append(f"{monitor_name}.{data_name}: {type(exc).__name__}: {exc}")
+        raise
+
+
+def _save_debug_fsp(fdtd: object, debug_path: Path, diagnostics: list[str]) -> Path:
+    try:
+        debug_path.parent.mkdir(parents=True, exist_ok=True)
+        fdtd.save(str(debug_path))
+        diagnostics.append(f"debug_fsp_saved={debug_path}")
+    except Exception as exc:
+        diagnostics.append(f"debug_fsp_save_failed={type(exc).__name__}: {exc}")
+    return debug_path
+
+
+def _short_diagnostic_value(value: object) -> str:
+    if value is None:
+        return "ok"
+    text = str(value)
+    if len(text) > 500:
+        return text[:500] + "...<truncated>"
+    return text
+
+
 def apcd_alpha_beta_basis(psi_deg: float, chi_deg: float) -> dict[str, tuple[complex, complex]]:
     psi = math.radians(psi_deg)
     chi = math.radians(chi_deg)
@@ -687,6 +835,8 @@ def _result_row(
     linear_matrix: Optional[dict[str, dict[str, complex]]] = None,
     alpha_beta_matrix: Optional[list[list[complex]]] = None,
     alpha_beta_metrics: Optional[dict[str, object]] = None,
+    diagnostics: Optional[list[str]] = None,
+    debug_fsp_path: Optional[Path] = None,
 ) -> dict[str, object]:
     geometry_validation = _safe_geometry_validation(config)
     linear_matrix = linear_matrix or {}
@@ -731,6 +881,8 @@ def _result_row(
         "_geometry_validation": geometry_validation,
         "_jones_matrix_linear_basis": _linear_matrix_values(linear_matrix),
         "_jones_matrix_alpha_beta_basis": alpha_beta_matrix,
+        "_diagnostics": diagnostics or [],
+        "_debug_fsp_path": debug_fsp_path,
     }
 
 
@@ -865,6 +1017,15 @@ def write_apcd_single_dimer_summary(row: dict[str, object], output_path: Union[s
                 f"- validation_passed: {validation.passed}",
             ]
         )
+    diagnostics = row.get("_diagnostics")
+    debug_fsp_path = row.get("_debug_fsp_path")
+    if diagnostics or debug_fsp_path:
+        lines.extend(["", "Run diagnostics:", ""])
+        if debug_fsp_path:
+            lines.append(f"- debug_fsp_path: {debug_fsp_path}")
+        if isinstance(diagnostics, list):
+            for item in diagnostics:
+                lines.append(f"- {item}")
     lines.extend(
         [
             "",

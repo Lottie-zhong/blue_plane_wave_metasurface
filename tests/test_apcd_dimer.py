@@ -155,6 +155,10 @@ def test_apcd_fig2_lumerical_extracts_linear_and_alpha_beta_matrices() -> None:
 
     assert row["status"] == "ok"
     assert len(lumapi.fdtds) == 2
+    assert lumapi.fdtds[0].events.index("run") < lumapi.fdtds[0].events.index("getdata:T_fields:Ex")
+    assert lumapi.fdtds[1].events.index("run") < lumapi.fdtds[1].events.index("getdata:T_fields:Ex")
+    assert lumapi.fdtds[0].transmission_called is False
+    assert lumapi.fdtds[1].transmission_called is False
     assert lumapi.fdtds[0].source_angles == [0]
     assert lumapi.fdtds[1].source_angles == [90]
     assert lumapi.fdtds[0].source_phases == [0]
@@ -216,6 +220,41 @@ def test_apcd_fig2_writes_required_jones_npy_files(tmp_path: Path) -> None:
 
     assert linear_path.exists()
     assert alpha_beta_path.exists()
+
+
+def test_apcd_fig2_successful_fake_run_writes_required_outputs(tmp_path: Path) -> None:
+    config = load_apcd_single_dimer_config(REPO_ROOT / "configs" / "apcd_fig2_elliptical_633nm.yaml")
+    runtime = RuntimeConfig(mode="test", enable_lumerical=True, lumapi_python_api_dir="", hide_gui=True)
+    row = run_apcd_single_dimer_lumerical(config=config, runtime=runtime, lumapi=_FakeLumapi())
+
+    results_path = write_apcd_single_dimer_results(row, tmp_path / "results.csv")
+    summary_path = write_apcd_single_dimer_summary(row, tmp_path / "summary.md")
+    linear_path = write_jones_matrix_linear_basis_npy(row, tmp_path / "jones_matrix_linear_basis.npy")
+    alpha_beta_path = write_jones_matrix_alpha_beta_basis_npy(row, tmp_path / "jones_matrix_alpha_beta_basis.npy")
+
+    assert results_path.exists()
+    assert summary_path.exists()
+    assert linear_path.exists()
+    assert alpha_beta_path.exists()
+
+
+def test_apcd_fig2_missing_field_data_writes_diagnostic_summary_and_debug_fsp(tmp_path: Path) -> None:
+    config = load_apcd_single_dimer_config(REPO_ROOT / "configs" / "apcd_fig2_elliptical_633nm.yaml")
+    config = replace(config, output=replace(config.output, result_dir=tmp_path))
+    runtime = RuntimeConfig(mode="test", enable_lumerical=True, lumapi_python_api_dir="", hide_gui=True)
+    lumapi = _MissingFieldLumapi()
+
+    row = run_apcd_single_dimer_lumerical(config=config, runtime=runtime, lumapi=lumapi)
+    summary_path = write_apcd_single_dimer_summary(row, tmp_path / "summary.md")
+
+    assert row["status"] == "error"
+    assert "T_fields" in str(row["_diagnostics"])
+    assert row["_debug_fsp_path"] == tmp_path / "debug_error_state.fsp"
+    assert lumapi.fdtds[0].saved_path == str(tmp_path / "debug_error_state.fsp")
+    summary_text = summary_path.read_text(encoding="utf-8")
+    assert "Run diagnostics" in summary_text
+    assert "debug_error_state.fsp" in summary_text
+    assert "T_fields_Ex_probe" in summary_text
 
 
 def test_alpha_beta_transform_for_ideal_apcd_projector() -> None:
@@ -363,10 +402,12 @@ class _FakeFDTD:
         self.hide = False
         self.run_called = False
         self.getdata_called = False
+        self.transmission_called = False
         self.saved_path = ""
         self.source_phases: list[float] = []
         self.source_angles: list[float] = []
         self.rotations: list[float] = []
+        self.events: list[str] = []
         self._current_object = ""
 
     def switchtolayout(self) -> None:
@@ -399,12 +440,20 @@ class _FakeFDTD:
             self.source_phases.append(float(value))
 
     def run(self) -> None:
+        self.events.append("run")
         self.run_called = True
 
     def save(self, path: str) -> None:
+        self.events.append(f"save:{path}")
         self.saved_path = path
 
+    def getresult(self, name: str) -> object:
+        self.events.append(f"getresult:{name}")
+        return {"name": name}
+
     def transmission(self, _name: str) -> float:
+        self.events.append(f"transmission:{_name}")
+        self.transmission_called = True
         if self.source_angles == [0]:
             return 0.64
         if self.source_angles == [90]:
@@ -412,6 +461,7 @@ class _FakeFDTD:
         return 0.9 if self.source_phases == [0, 90] else 0.1
 
     def getdata(self, _name: str, data_name: str) -> object:
+        self.events.append(f"getdata:{_name}:{data_name}")
         self.getdata_called = True
         if self.source_angles == [0]:
             if data_name == "Ex":
@@ -432,3 +482,21 @@ class _FakeFDTD:
 
     def close(self) -> None:
         pass
+
+
+class _MissingFieldLumapi:
+    def __init__(self) -> None:
+        self.fdtds: list[_MissingFieldFDTD] = []
+
+    def FDTD(self, hide: bool) -> "_MissingFieldFDTD":
+        fdtd = _MissingFieldFDTD()
+        fdtd.hide = hide
+        self.fdtds.append(fdtd)
+        return fdtd
+
+
+class _MissingFieldFDTD(_FakeFDTD):
+    def getdata(self, _name: str, data_name: str) -> object:
+        self.events.append(f"getdata:{_name}:{data_name}")
+        self.getdata_called = True
+        raise RuntimeError(f"missing monitor data: {_name}.{data_name}")
