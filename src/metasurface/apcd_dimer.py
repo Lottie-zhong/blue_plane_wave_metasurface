@@ -45,6 +45,8 @@ class APCDSingleDimerRunner:
     config: APCDSingleDimerConfig
     dry_run: bool = False
     runtime: Optional[RuntimeConfig] = None
+    setup_only: bool = False
+    fsp_output: Optional[Path] = None
 
     @classmethod
     def from_runtime_file(
@@ -52,9 +54,18 @@ class APCDSingleDimerRunner:
         config: APCDSingleDimerConfig,
         runtime_path: Optional[Union[str, Path]],
         dry_run: bool,
+        setup_only: bool = False,
+        fsp_output: Optional[Union[str, Path]] = None,
     ) -> "APCDSingleDimerRunner":
         runtime = None if dry_run or runtime_path is None else load_runtime_config(runtime_path)
-        return cls(config=config, dry_run=dry_run, runtime=runtime)
+        output_path = None if fsp_output is None else Path(fsp_output)
+        return cls(
+            config=config,
+            dry_run=dry_run,
+            runtime=runtime,
+            setup_only=setup_only,
+            fsp_output=output_path,
+        )
 
     def run(self) -> dict[str, object]:
         if self.dry_run:
@@ -66,6 +77,9 @@ class APCDSingleDimerRunner:
             raise RuntimeError("runtime.enable_lumerical is false; use --dry-run or update runtime.yaml")
 
         lumapi = import_lumapi(self.runtime)
+        if self.setup_only:
+            output_path = self.fsp_output or self.config.output.result_dir / "apcd_single_dimer_633nm_setup.fsp"
+            return run_apcd_single_dimer_setup_only(self.config, self.runtime, lumapi, output_path)
         return run_apcd_single_dimer_lumerical(self.config, self.runtime, lumapi)
 
 
@@ -124,6 +138,50 @@ def run_apcd_single_dimer_lumerical(
             status="error",
             note=f"{type(exc).__name__}: {exc}",
         )
+
+
+def run_apcd_single_dimer_setup_only(
+    config: APCDSingleDimerConfig,
+    runtime: RuntimeConfig,
+    lumapi: ModuleType,
+    fsp_output: Union[str, Path],
+) -> dict[str, object]:
+    fdtd = None
+    output_path = Path(fsp_output)
+    try:
+        fdtd = lumapi.FDTD(hide=runtime.hide_gui)
+        _build_apcd_single_dimer_model(fdtd, config, incident_polarization="LCP")
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        fdtd.save(str(output_path))
+        return _result_row(
+            config=config,
+            matrix={},
+            target_conversion="",
+            opposite_spin_leakage="",
+            ratio="",
+            spin_er_db="",
+            gate_pass="",
+            status="setup_only",
+            note=f"model saved to {output_path}; solver was not run",
+        )
+    except Exception as exc:
+        return _result_row(
+            config=config,
+            matrix={},
+            target_conversion="",
+            opposite_spin_leakage="",
+            ratio="",
+            spin_er_db="",
+            gate_pass=False,
+            status="error",
+            note=f"{type(exc).__name__}: {exc}",
+        )
+    finally:
+        if fdtd is not None:
+            try:
+                fdtd.close()
+            except Exception:
+                pass
 
 
 def _run_one_incidence(

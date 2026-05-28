@@ -15,6 +15,7 @@ from metasurface.apcd_dimer import (
     APCD_DIMER_RESULT_FIELDS,
     APCDSingleDimerRunner,
     run_apcd_single_dimer_lumerical,
+    run_apcd_single_dimer_setup_only,
     write_apcd_single_dimer_results,
     write_apcd_single_dimer_summary,
 )
@@ -77,6 +78,27 @@ def test_apcd_single_dimer_lumerical_extracts_circular_matrix() -> None:
     assert lumapi.fdtds[0].rotations == [45, -45]
 
 
+def test_apcd_single_dimer_setup_only_saves_fsp_without_run(tmp_path: Path) -> None:
+    config = load_apcd_single_dimer_config(REPO_ROOT / "configs" / "apcd_single_dimer_633nm.yaml")
+    runtime = RuntimeConfig(mode="test", enable_lumerical=True, lumapi_python_api_dir="", hide_gui=True)
+    lumapi = _FakeLumapi()
+    fsp_output = tmp_path / "apcd_single_dimer_633nm_setup.fsp"
+
+    row = run_apcd_single_dimer_setup_only(
+        config=config,
+        runtime=runtime,
+        lumapi=lumapi,
+        fsp_output=fsp_output,
+    )
+
+    assert row["status"] == "setup_only"
+    assert "solver was not run" in str(row["note"])
+    assert lumapi.fdtds[0].saved_path == str(fsp_output)
+    assert lumapi.fdtds[0].run_called is False
+    assert lumapi.fdtds[0].getdata_called is False
+    assert lumapi.fdtds[0].source_phases == [0, 90]
+
+
 class _FakeLumapi:
     def __init__(self) -> None:
         self.fdtds: list[_FakeFDTD] = []
@@ -91,6 +113,9 @@ class _FakeLumapi:
 class _FakeFDTD:
     def __init__(self) -> None:
         self.hide = False
+        self.run_called = False
+        self.getdata_called = False
+        self.saved_path = ""
         self.source_phases: list[float] = []
         self.rotations: list[float] = []
         self._current_object = ""
@@ -123,12 +148,16 @@ class _FakeFDTD:
             self.source_phases.append(float(value))
 
     def run(self) -> None:
-        pass
+        self.run_called = True
+
+    def save(self, path: str) -> None:
+        self.saved_path = path
 
     def transmission(self, _name: str) -> float:
         return 0.9 if self.source_phases == [0, 90] else 0.1
 
     def getdata(self, _name: str, data_name: str) -> object:
+        self.getdata_called = True
         if self.source_phases == [0, 90]:
             if data_name == "Ex":
                 return [[1 / math.sqrt(2)]]
