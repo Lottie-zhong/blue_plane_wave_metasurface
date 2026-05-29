@@ -68,6 +68,96 @@ DEFAULT_ALPHA_PASS_GEOMETRY = {
 }
 
 
+def detour_phase_deg(
+    order_m: int,
+    displacement_nm: float,
+    supercell_period_nm: float,
+    convention: str = "minus180_180",
+) -> float:
+    if supercell_period_nm == 0:
+        raise ValueError("supercell_period_nm must be nonzero")
+    phase_deg = 360.0 * int(order_m) * float(displacement_nm) / float(supercell_period_nm)
+    return wrap_phase_deg(phase_deg, convention=convention)
+
+
+def displacement_for_phase_deg(
+    phase_deg: float,
+    order_m: int,
+    supercell_period_nm: float,
+) -> float:
+    if int(order_m) == 0:
+        raise ValueError("order_m must be nonzero for detour displacement")
+    return float(phase_deg) * float(supercell_period_nm) / (360.0 * int(order_m))
+
+
+def build_k6_detour_displacement_targets(
+    ramp_sign: str,
+    supercell_period_nm: float,
+    *,
+    order_m: int = 1,
+    phase_convention: str = "minus180_180",
+) -> list[dict[str, float | int | str]]:
+    sign = _normalize_ramp_sign(ramp_sign)
+    rows: list[dict[str, float | int | str]] = []
+    for index, phase_target_deg in enumerate(build_k6_phase_targets(sign)):
+        displacement_nm = displacement_for_phase_deg(
+            phase_deg=phase_target_deg,
+            order_m=order_m,
+            supercell_period_nm=supercell_period_nm,
+        )
+        rows.append(
+            {
+                "K": 6,
+                "phase_state_index": index,
+                "ramp_sign": sign,
+                "order_m": int(order_m),
+                "phase_target_unwrapped_deg": phase_target_deg,
+                "phase_target_deg": wrap_phase_deg(phase_target_deg, convention=phase_convention),
+                "dimer_dx_nm": displacement_nm,
+                "detour_phase_deg": detour_phase_deg(
+                    order_m=order_m,
+                    displacement_nm=displacement_nm,
+                    supercell_period_nm=supercell_period_nm,
+                    convention=phase_convention,
+                ),
+                "notes": "analytic detour scaffold only; no FDTD run; not a steering result",
+            }
+        )
+    return rows
+
+
+def summarize_phase_generation_options() -> list[dict[str, str]]:
+    return [
+        {
+            "mechanism": "detour_displacement",
+            "priority": "A",
+            "summary": (
+                "Move the whole dimer group center to add order-dependent analytic phase; "
+                "does not change intrinsic t_alpha_star_from_alpha phase."
+            ),
+            "risk": "Sign convention, supercell sampling, and coupling must be verified before use.",
+        },
+        {
+            "mechanism": "small_geometry_variants",
+            "priority": "B",
+            "summary": "Perturb pillar length/width to tune intrinsic dynamic phase.",
+            "risk": "May degrade alpha-pass and beta suppression; must use order-resolved Jones metrics.",
+        },
+        {
+            "mechanism": "constrained_global_rotation",
+            "priority": "C",
+            "summary": "Possible geometric-phase-like knob, but not a default route for APCD.",
+            "risk": "Global rotation may change the allowed alpha state and alpha/beta basis relation.",
+        },
+        {
+            "mechanism": "hybrid_geometry_displacement",
+            "priority": "later",
+            "summary": "Combine small geometry variants with limited displacement.",
+            "risk": "More degrees of freedom; keep deferred until single-knob behavior is understood.",
+        },
+    ]
+
+
 def build_k6_phase_targets(ramp_sign: str) -> list[float]:
     sign = _normalize_ramp_sign(ramp_sign)
     values = [60.0 * index for index in range(6)]

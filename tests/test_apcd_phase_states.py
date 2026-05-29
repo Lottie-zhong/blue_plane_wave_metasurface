@@ -14,14 +14,21 @@ if str(SRC_DIR) not in sys.path:
 
 from metasurface.apcd_phase_states import (
     APCD_PHASE_STATE_LIBRARY_FIELDS,
+    build_k6_detour_displacement_targets,
     build_k6_phase_targets,
     build_phase_state_schema_rows,
     compute_phase_state_metrics,
+    detour_phase_deg,
+    displacement_for_phase_deg,
     evaluate_phase_state_pass_fail,
     phase_error_deg,
+    summarize_phase_generation_options,
     wrap_phase_deg,
     write_phase_state_dry_run_outputs,
 )
+
+
+K6_SUPERCELL_PERIOD_NM = 2445.724192163921
 
 
 def test_k6_plus_ramp_targets() -> None:
@@ -38,6 +45,62 @@ def test_phase_wrap_conventions() -> None:
     assert wrap_phase_deg(-181) == 179
     assert wrap_phase_deg(360) == 0
     assert wrap_phase_deg(-60, convention="0_360") == 300
+
+
+def test_detour_phase_zero_displacement_returns_zero() -> None:
+    assert detour_phase_deg(
+        order_m=1,
+        displacement_nm=0,
+        supercell_period_nm=K6_SUPERCELL_PERIOD_NM,
+    ) == 0
+
+
+def test_displacement_for_60_deg_is_lambda_over_6_for_order_one() -> None:
+    displacement = displacement_for_phase_deg(
+        phase_deg=60,
+        order_m=1,
+        supercell_period_nm=K6_SUPERCELL_PERIOD_NM,
+    )
+
+    assert math.isclose(displacement, K6_SUPERCELL_PERIOD_NM / 6)
+
+
+def test_k6_detour_plus_displacement_targets_are_monotonic() -> None:
+    rows = build_k6_detour_displacement_targets(
+        "plus",
+        supercell_period_nm=K6_SUPERCELL_PERIOD_NM,
+        order_m=1,
+    )
+    displacements = [float(row["dimer_dx_nm"]) for row in rows]
+
+    assert displacements == sorted(displacements)
+    assert math.isclose(displacements[1], K6_SUPERCELL_PERIOD_NM / 6)
+    assert rows[3]["phase_target_deg"] == -180
+
+
+def test_k6_detour_minus_displacement_targets_have_opposite_sign() -> None:
+    plus_rows = build_k6_detour_displacement_targets(
+        "plus",
+        supercell_period_nm=K6_SUPERCELL_PERIOD_NM,
+        order_m=1,
+    )
+    minus_rows = build_k6_detour_displacement_targets(
+        "minus",
+        supercell_period_nm=K6_SUPERCELL_PERIOD_NM,
+        order_m=1,
+    )
+
+    for plus_row, minus_row in zip(plus_rows, minus_rows):
+        assert math.isclose(float(plus_row["dimer_dx_nm"]), -float(minus_row["dimer_dx_nm"]))
+
+
+def test_phase_generation_summary_prioritizes_detour_and_deprioritizes_rotation() -> None:
+    rows = summarize_phase_generation_options()
+
+    assert rows[0]["mechanism"] == "detour_displacement"
+    assert rows[0]["priority"] == "A"
+    rotation = next(row for row in rows if row["mechanism"] == "constrained_global_rotation")
+    assert "allowed alpha state" in rotation["risk"]
 
 
 def test_phase_error_handles_equivalent_angles() -> None:
@@ -128,6 +191,13 @@ def test_dry_run_script_does_not_call_lumapi_or_fdtd_run() -> None:
     assert "fdtd.run" not in script_text
 
 
+def test_phase_state_module_analytic_functions_do_not_call_lumapi_or_fdtd_run() -> None:
+    module_text = (REPO_ROOT / "src" / "metasurface" / "apcd_phase_states.py").read_text(encoding="utf-8")
+
+    assert "lumapi" not in module_text
+    assert "fdtd.run" not in module_text
+
+
 def test_dry_run_script_writes_schema_and_reports_targets() -> None:
     script = REPO_ROOT / "scripts" / "20_define_apcd_k6_phase_state_library.py"
     completed = subprocess.run(
@@ -164,3 +234,16 @@ def test_criteria_report_states_physical_boundaries(tmp_path: Path) -> None:
     assert "Do not judge success from `grating()` power alone" in text
     assert "Global rotation may change the allowed alpha state" in text
     assert "150 x 85 nm" in text
+
+
+def test_generation_mechanism_report_states_scope_and_detour_warning() -> None:
+    text = (REPO_ROOT / "reports" / "apcd_k6_phase_state_generation_mechanism_note.md").read_text(
+        encoding="utf-8"
+    )
+
+    assert "No FDTD run was performed" in text
+    assert "not a steering result" in text
+    assert "mechanism note only" in text
+    assert "displacement_for_60_deg(order_m=+1) = 407.62069869398687 nm" in text
+    assert "does not automatically change the intrinsic single-dimer `t_{alpha*<-alpha}` phase" in text
+    assert "Do not use global rotation as the first-priority default phase knob" in text
