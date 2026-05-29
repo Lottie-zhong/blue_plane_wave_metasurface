@@ -1,0 +1,4 @@
+K,wavelength_nm,supercell_period_nm,target_angle_deg,order_n,order_m,expected_theta_deg,expected_ux,expected_uy,order_power_fraction_of_transmitted,total_transmission,order_efficiency_source_norm,Ex_order_complex_real,Ex_order_complex_imag,Ey_order_complex_real,Ey_order_complex_imag,Ez_order_complex_real,Ez_order_complex_imag,input_basis,output_basis,target_channel,notes
+7,633.0,2445.724192163921,15.0,-1,0,-14.999999999999998,-0.25881904510252074,0.0,,,,,,,,,,,alpha_star_beta_star_future,t_alpha_star_from_alpha_order_resolved_future,dry-run schema row; not an optical result
+7,633.0,2445.724192163921,15.0,0,0,0.0,0.0,0.0,,,,,,,,,,,alpha_star_beta_star_future,t_alpha_star_from_alpha_order_resolved_future,dry-run schema row; not an optical result
+7,633.0,2445.724192163921,15.0,1,0,14.999999999999998,0.25881904510252074,0.0,,,,,,,,,,,alpha_star_beta_star_future,t_alpha_star_from_alpha_order_resolved_future,dry-run schema row; not an optical result
