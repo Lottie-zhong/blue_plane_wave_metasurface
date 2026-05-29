@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import math
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
@@ -32,11 +33,318 @@ APCD_DIFFRACTION_ORDER_FIELDS = [
 ]
 
 
+APCD_ORDER_RESOLVED_JONES_FIELDS = [
+    "K",
+    "wavelength_nm",
+    "target_angle_deg",
+    "order_m",
+    "order_n",
+    "expected_theta_deg",
+    "input_basis",
+    "output_basis",
+    "Jxx_real",
+    "Jxx_imag",
+    "Jxy_real",
+    "Jxy_imag",
+    "Jyx_real",
+    "Jyx_imag",
+    "Jyy_real",
+    "Jyy_imag",
+    "t_alpha_star_from_alpha_real",
+    "t_alpha_star_from_alpha_imag",
+    "t_beta_star_from_alpha_real",
+    "t_beta_star_from_alpha_imag",
+    "t_alpha_star_from_beta_real",
+    "t_alpha_star_from_beta_imag",
+    "t_beta_star_from_beta_real",
+    "t_beta_star_from_beta_imag",
+    "target_conversion",
+    "alpha_cross_leakage",
+    "beta_to_target_leakage",
+    "beta_total_leakage",
+    "target_order_ER_dB",
+    "notes",
+]
+
+
+@dataclass(frozen=True)
+class OrderResolvedJones:
+    K: int
+    order_m: int
+    order_n: int
+    expected_theta_deg: float
+    J_xy: list[list[complex]]
+    J_alpha_beta: list[list[complex]]
+    total_transmission_x: float | None = None
+    total_transmission_y: float | None = None
+    order_efficiency_x: float | None = None
+    order_efficiency_y: float | None = None
+    notes: str = ""
+
+    def to_schema_row(
+        self,
+        wavelength_nm: float = 633.0,
+        target_angle_deg: float = 15.0,
+    ) -> dict[str, object]:
+        metrics = order_resolved_apcd_metrics(self.J_alpha_beta)
+        return {
+            "K": self.K,
+            "wavelength_nm": wavelength_nm,
+            "target_angle_deg": target_angle_deg,
+            "order_m": self.order_m,
+            "order_n": self.order_n,
+            "expected_theta_deg": self.expected_theta_deg,
+            "input_basis": "alpha_beta",
+            "output_basis": "alpha_star_beta_star",
+            "Jxx_real": self.J_xy[0][0].real,
+            "Jxx_imag": self.J_xy[0][0].imag,
+            "Jxy_real": self.J_xy[0][1].real,
+            "Jxy_imag": self.J_xy[0][1].imag,
+            "Jyx_real": self.J_xy[1][0].real,
+            "Jyx_imag": self.J_xy[1][0].imag,
+            "Jyy_real": self.J_xy[1][1].real,
+            "Jyy_imag": self.J_xy[1][1].imag,
+            "t_alpha_star_from_alpha_real": self.J_alpha_beta[0][0].real,
+            "t_alpha_star_from_alpha_imag": self.J_alpha_beta[0][0].imag,
+            "t_beta_star_from_alpha_real": self.J_alpha_beta[1][0].real,
+            "t_beta_star_from_alpha_imag": self.J_alpha_beta[1][0].imag,
+            "t_alpha_star_from_beta_real": self.J_alpha_beta[0][1].real,
+            "t_alpha_star_from_beta_imag": self.J_alpha_beta[0][1].imag,
+            "t_beta_star_from_beta_real": self.J_alpha_beta[1][1].real,
+            "t_beta_star_from_beta_imag": self.J_alpha_beta[1][1].imag,
+            "target_conversion": metrics["target_conversion"],
+            "alpha_cross_leakage": metrics["alpha_cross_leakage"],
+            "beta_to_target_leakage": metrics["beta_to_target_leakage"],
+            "beta_total_leakage": metrics["beta_total_leakage"],
+            "target_order_ER_dB": metrics["target_order_ER_dB"],
+            "notes": self.notes,
+        }
+
+
 def compute_grating_period_nm(wavelength_nm: float, target_angle_deg: float) -> float:
     sin_theta = math.sin(math.radians(target_angle_deg))
     if sin_theta <= 0:
         raise ValueError("target_angle_deg must give a positive grating period")
     return wavelength_nm / sin_theta
+
+
+def build_alpha_beta_basis(psi_deg: float, chi_deg: float) -> dict[str, tuple[complex, complex]]:
+    psi = math.radians(psi_deg)
+    chi = math.radians(chi_deg)
+    alpha = (
+        math.cos(chi) * math.cos(psi) - 1j * math.sin(chi) * math.sin(psi),
+        math.cos(chi) * math.sin(psi) + 1j * math.sin(chi) * math.cos(psi),
+    )
+    beta = (-alpha[1].conjugate(), alpha[0].conjugate())
+    basis = {
+        "alpha": _normalize_vector(alpha),
+        "beta": _normalize_vector(beta),
+    }
+    basis["alpha_star"] = (basis["alpha"][0].conjugate(), basis["alpha"][1].conjugate())
+    basis["beta_star"] = (basis["beta"][0].conjugate(), basis["beta"][1].conjugate())
+    return basis
+
+
+def build_jones_xy_from_columns(
+    x_input_output: tuple[complex, complex],
+    y_input_output: tuple[complex, complex],
+) -> list[list[complex]]:
+    return [
+        [x_input_output[0], y_input_output[0]],
+        [x_input_output[1], y_input_output[1]],
+    ]
+
+
+def transform_jones_xy_to_alpha_beta(
+    jones_xy: list[list[complex]],
+    *,
+    psi_deg: float,
+    chi_deg: float,
+) -> list[list[complex]]:
+    basis = build_alpha_beta_basis(psi_deg, chi_deg)
+    input_basis = [basis["alpha"], basis["beta"]]
+    output_basis = [basis["alpha_star"], basis["beta_star"]]
+    transformed: list[list[complex]] = []
+    for output_vector in output_basis:
+        row = []
+        for input_vector in input_basis:
+            linear_output = _matrix_vector_product(jones_xy, input_vector)
+            row.append(_inner_product(output_vector, linear_output))
+        transformed.append(row)
+    return transformed
+
+
+def order_resolved_apcd_metrics(
+    jones_alpha_beta: list[list[complex]],
+    eps: float = 1e-12,
+) -> dict[str, float]:
+    t_alpha_star_from_alpha = jones_alpha_beta[0][0]
+    t_beta_star_from_alpha = jones_alpha_beta[1][0]
+    t_alpha_star_from_beta = jones_alpha_beta[0][1]
+    t_beta_star_from_beta = jones_alpha_beta[1][1]
+    target_conversion = abs(t_alpha_star_from_alpha) ** 2
+    alpha_cross_leakage = abs(t_beta_star_from_alpha) ** 2
+    beta_to_target_leakage = abs(t_alpha_star_from_beta) ** 2
+    beta_total_leakage = beta_to_target_leakage + abs(t_beta_star_from_beta) ** 2
+    target_order_er_db = 10 * math.log10((target_conversion + eps) / (beta_to_target_leakage + eps))
+    return {
+        "target_conversion": target_conversion,
+        "alpha_cross_leakage": alpha_cross_leakage,
+        "beta_to_target_leakage": beta_to_target_leakage,
+        "beta_total_leakage": beta_total_leakage,
+        "target_order_ER_dB": target_order_er_db,
+    }
+
+
+def build_order_resolved_jones_schema_rows(
+    K: int,
+    wavelength_nm: float = 633.0,
+    target_angle_deg: float = 15.0,
+    psi_deg: float = 112.5,
+    chi_deg: float = 22.5,
+) -> list[dict[str, object]]:
+    rows = []
+    for order in (-1, 0, 1):
+        theta = expected_order_angle_deg(
+            order,
+            wavelength_nm,
+            compute_grating_period_nm(wavelength_nm, target_angle_deg),
+        )
+        rows.append(
+            {
+                field: ""
+                for field in APCD_ORDER_RESOLVED_JONES_FIELDS
+            }
+        )
+        rows[-1].update(
+            {
+                "K": K,
+                "wavelength_nm": wavelength_nm,
+                "target_angle_deg": target_angle_deg,
+                "order_m": 0,
+                "order_n": order,
+                "expected_theta_deg": theta,
+                "input_basis": f"alpha_beta_future_from_psi_{psi_deg}_chi_{chi_deg}",
+                "output_basis": "alpha_star_beta_star_future",
+                "notes": "dry-run schema row; not an optical result; no FDTD run",
+            }
+        )
+    return rows
+
+
+def write_order_resolved_jones_schema(rows: Iterable[dict[str, object]], path: Path) -> Path:
+    rows = list(rows)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=APCD_ORDER_RESOLVED_JONES_FIELDS)
+        writer.writeheader()
+        writer.writerows({field: row.get(field, "") for field in APCD_ORDER_RESOLVED_JONES_FIELDS} for row in rows)
+    return path
+
+
+def write_order_resolved_jones_plan(
+    K: int,
+    path: Path,
+    psi_deg: float = 112.5,
+    chi_deg: float = 22.5,
+) -> Path:
+    lines = [
+        f"# APCD K={K} Order-Resolved Jones Analysis Plan",
+        "",
+        "## Current State",
+        "",
+        "- K=6/K=7 setup-only scaffold has been completed.",
+        "- Dimer-level structure group organization has been completed.",
+        "- Phase 2.3A proved that a uniform scaffold is not equivalent to a +15 deg directional metagrating.",
+        "- Phase 2.3B established the diffraction-order extraction scaffold.",
+        "- There is still no real metagrating optical result.",
+        "- This plan is not an optical result and no FDTD run was performed.",
+        "- Current structure remains scaffold only.",
+        "",
+        "## Stage Goal",
+        "",
+        "- Establish a Jones-matrix analysis framework for each diffraction order.",
+        "- Support future x/y input runs and combine their complex order fields into `J_xy`.",
+        "- Transform `J_xy` into the APCD `alpha/beta -> alpha*/beta*` basis.",
+        "- Prepare order-resolved APCD metrics.",
+        "",
+        "## APCD Target Channel",
+        "",
+        "The main metric is not total T and not ordinary grating power. The target channel is:",
+        "",
+        "```text",
+        "t_{alpha*<-alpha}^{target order}",
+        "```",
+        "",
+        "The suppressed channels are:",
+        "",
+        "- `t_{beta*<-alpha}`",
+        "- `t_{alpha*<-beta}`",
+        "- `t_{beta*<-beta}`",
+        "",
+        "Basis parameters:",
+        "",
+        f"- psi_deg: {psi_deg}",
+        f"- chi_deg: {chi_deg}",
+        "",
+        "Matrix indexing convention:",
+        "",
+        "- `J_ab[0,0] = t_{alpha*<-alpha}`",
+        "- `J_ab[1,0] = t_{beta*<-alpha}`",
+        "- `J_ab[0,1] = t_{alpha*<-beta}`",
+        "- `J_ab[1,1] = t_{beta*<-beta}`",
+        "",
+        "## Lumerical Extraction Relationship",
+        "",
+        "Future real runs need:",
+        "",
+        "1. x-polarized input run",
+        "2. y-polarized input run",
+        "3. for each run, `gratingvector`, `gratingpolar`, or an equivalent complex vector extraction per diffraction order",
+        "4. construction of `J_xy = [[Ex_x, Ex_y], [Ey_x, Ey_y]]` for each order",
+        "5. transformation to alpha/beta input and alpha*/beta* output basis",
+        "",
+        "`grating()` power fraction alone is not enough to construct a Jones matrix.",
+        "",
+        "## Later Route",
+        "",
+        "Step 2.3D: run one minimal K=6 uniform scaffold diagnostic only to verify order sign convention, extraction pipeline, and weak m=+/-1 response expected from a uniform scaffold.",
+        "",
+        "Step 2.4: design a dimer phase-state mechanism such that K dimer variants provide high `|t_{alpha*<-alpha}|`, low beta leakage, and prescribed phase `phi_i = +/-2*pi*i/K`.",
+        "",
+        "## Explicit Non-Goals",
+        "",
+        "- Do not claim +15 deg steering.",
+        "- Do not treat the uniform scaffold as the final metagrating.",
+        "- Do not use total transmission alone.",
+        "- Do not use only `grating()` power as a Jones matrix substitute.",
+        "- Do not switch to TiO2 or 450 nm.",
+        "- Do not do ML.",
+        "- Do not do a large sweep.",
+    ]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return path
+
+
+def write_order_resolved_jones_dry_run_outputs(
+    K: int,
+    output_dir: Path,
+    wavelength_nm: float = 633.0,
+    target_angle_deg: float = 15.0,
+    psi_deg: float = 112.5,
+    chi_deg: float = 22.5,
+) -> tuple[Path, Path, list[dict[str, object]]]:
+    rows = build_order_resolved_jones_schema_rows(
+        K=K,
+        wavelength_nm=wavelength_nm,
+        target_angle_deg=target_angle_deg,
+        psi_deg=psi_deg,
+        chi_deg=chi_deg,
+    )
+    schema_path = write_order_resolved_jones_schema(rows, output_dir / "order_resolved_jones_schema.csv")
+    plan_path = write_order_resolved_jones_plan(K, output_dir / "order_resolved_jones_plan.md", psi_deg, chi_deg)
+    return schema_path, plan_path, rows
 
 
 def expected_order_angle_deg(order_m_or_n: int, wavelength_nm: float, period_nm: float) -> float:
@@ -314,3 +622,27 @@ def _float_or_zero(value: object) -> float:
         return float(value)
     except Exception:
         return 0.0
+
+
+def _normalize_vector(vector: tuple[complex, complex]) -> tuple[complex, complex]:
+    norm = math.sqrt(abs(vector[0]) ** 2 + abs(vector[1]) ** 2)
+    if norm == 0:
+        raise ValueError("Cannot normalize zero vector")
+    return (vector[0] / norm, vector[1] / norm)
+
+
+def _matrix_vector_product(
+    matrix: list[list[complex]],
+    vector: tuple[complex, complex],
+) -> tuple[complex, complex]:
+    return (
+        matrix[0][0] * vector[0] + matrix[0][1] * vector[1],
+        matrix[1][0] * vector[0] + matrix[1][1] * vector[1],
+    )
+
+
+def _inner_product(
+    basis_vector: tuple[complex, complex],
+    field_vector: tuple[complex, complex],
+) -> complex:
+    return basis_vector[0].conjugate() * field_vector[0] + basis_vector[1].conjugate() * field_vector[1]
