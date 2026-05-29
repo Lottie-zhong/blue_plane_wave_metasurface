@@ -13,9 +13,12 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 from metasurface.apcd_phase_states import (
+    APCD_PHASE_STATE_CANDIDATE_ROUTE_FIELDS,
     APCD_PHASE_STATE_LIBRARY_FIELDS,
+    baseline_alpha_pass_geometry,
     build_k6_detour_displacement_targets,
     build_k6_phase_targets,
+    build_one_factor_geometry_variants,
     build_phase_state_schema_rows,
     compute_phase_state_metrics,
     detour_phase_deg,
@@ -23,7 +26,9 @@ from metasurface.apcd_phase_states import (
     evaluate_phase_state_pass_fail,
     phase_error_deg,
     summarize_phase_generation_options,
+    validate_variant_geometry,
     wrap_phase_deg,
+    write_minimal_candidate_route_outputs,
     write_phase_state_dry_run_outputs,
 )
 
@@ -101,6 +106,83 @@ def test_phase_generation_summary_prioritizes_detour_and_deprioritizes_rotation(
     assert rows[0]["priority"] == "A"
     rotation = next(row for row in rows if row["mechanism"] == "constrained_global_rotation")
     assert "allowed alpha state" in rotation["risk"]
+
+
+def test_baseline_geometry_is_current_alpha_pass_not_beta_selective() -> None:
+    geometry = baseline_alpha_pass_geometry()
+
+    assert geometry["pillar_1_length_nm"] == 130
+    assert geometry["pillar_1_width_nm"] == 70
+    assert geometry["pillar_1_rotation_deg"] == 67.5
+    assert geometry["pillar_2_length_nm"] == 85
+    assert geometry["pillar_2_width_nm"] == 150
+    assert geometry["pillar_2_rotation_deg"] == 112.5
+    assert not (
+        geometry["pillar_2_length_nm"] == 150
+        and geometry["pillar_2_width_nm"] == 85
+    )
+
+
+def test_one_factor_variants_are_small_unique_and_keep_rotations() -> None:
+    rows = build_one_factor_geometry_variants()
+    variant_ids = [row["variant_id"] for row in rows]
+    baseline = baseline_alpha_pass_geometry()
+
+    assert len(rows) <= 20
+    assert len(variant_ids) == len(set(variant_ids))
+    assert variant_ids == [
+        "baseline",
+        "p1L_m10",
+        "p1L_m5",
+        "p1L_p5",
+        "p1L_p10",
+        "p1W_m5",
+        "p1W_p5",
+        "p2L_m5",
+        "p2L_p5",
+        "p2W_m10",
+        "p2W_m5",
+        "p2W_p5",
+        "p2W_p10",
+    ]
+
+    for row in rows:
+        assert row["pillar_1_rotation_deg"] == 67.5
+        assert row["pillar_2_rotation_deg"] == 112.5
+        assert validate_variant_geometry(row)
+        assert not (row["pillar_2_length_nm"] == 150 and row["pillar_2_width_nm"] == 85)
+        changed = [
+            key
+            for key in (
+                "pillar_1_length_nm",
+                "pillar_1_width_nm",
+                "pillar_2_length_nm",
+                "pillar_2_width_nm",
+            )
+            if not math.isclose(float(row[key]), float(baseline[key]))
+        ]
+        if row["variant_id"] == "baseline":
+            assert changed == []
+        else:
+            assert len(changed) == 1
+
+
+def test_candidate_route_csv_output_contains_required_columns(tmp_path: Path) -> None:
+    csv_path, report_path, rows = write_minimal_candidate_route_outputs(
+        output_dir=tmp_path,
+        report_path=tmp_path / "route.md",
+    )
+
+    assert csv_path.exists()
+    assert report_path.exists()
+    assert len(rows) == 13
+    with csv_path.open("r", newline="", encoding="utf-8") as handle:
+        reader = csv.DictReader(handle)
+        loaded_rows = list(reader)
+
+    assert reader.fieldnames == APCD_PHASE_STATE_CANDIDATE_ROUTE_FIELDS
+    assert len(loaded_rows) == 13
+    assert set(APCD_PHASE_STATE_CANDIDATE_ROUTE_FIELDS).issubset(set(reader.fieldnames or []))
 
 
 def test_phase_error_handles_equivalent_angles() -> None:
@@ -184,11 +266,15 @@ def test_write_schema_csv_contains_all_required_columns(tmp_path: Path) -> None:
 
 
 def test_dry_run_script_does_not_call_lumapi_or_fdtd_run() -> None:
-    script = REPO_ROOT / "scripts" / "20_define_apcd_k6_phase_state_library.py"
-    script_text = script.read_text(encoding="utf-8")
+    for script_name in (
+        "20_define_apcd_k6_phase_state_library.py",
+        "21_define_apcd_k6_minimal_candidate_route.py",
+    ):
+        script = REPO_ROOT / "scripts" / script_name
+        script_text = script.read_text(encoding="utf-8")
 
-    assert "lumapi" not in script_text
-    assert "fdtd.run" not in script_text
+        assert "lumapi" not in script_text
+        assert "fdtd.run" not in script_text
 
 
 def test_phase_state_module_analytic_functions_do_not_call_lumapi_or_fdtd_run() -> None:
@@ -216,6 +302,28 @@ def test_dry_run_script_writes_schema_and_reports_targets() -> None:
     ).exists()
     assert (
         REPO_ROOT / "outputs" / "apcd_k6_metagrating_633nm" / "phase_state_pass_fail_criteria.md"
+    ).exists()
+
+
+def test_candidate_route_dry_run_script_writes_csv_and_report() -> None:
+    script = REPO_ROOT / "scripts" / "21_define_apcd_k6_minimal_candidate_route.py"
+    completed = subprocess.run(
+        [sys.executable, str(script), "--dry-run"],
+        cwd=REPO_ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    assert "candidate_count=13" in completed.stdout
+    assert "one_factor_at_a_time=True" in completed.stdout
+    assert "baseline,p1L_m10,p1L_m5,p1L_p5,p1L_p10" in completed.stdout
+    assert "status=dry_run_route_only_no_fdtd_no_fsp_not_steering_result" in completed.stdout
+    assert (
+        REPO_ROOT / "outputs" / "apcd_k6_metagrating_633nm" / "phase_state_candidate_route.csv"
+    ).exists()
+    assert (
+        REPO_ROOT / "reports" / "apcd_k6_minimal_phase_state_candidate_route.md"
     ).exists()
 
 
@@ -247,3 +355,17 @@ def test_generation_mechanism_report_states_scope_and_detour_warning() -> None:
     assert "displacement_for_60_deg(order_m=+1) = 407.62069869398687 nm" in text
     assert "does not automatically change the intrinsic single-dimer `t_{alpha*<-alpha}` phase" in text
     assert "Do not use global rotation as the first-priority default phase knob" in text
+
+
+def test_minimal_candidate_route_report_states_scope_and_route_only() -> None:
+    text = (REPO_ROOT / "reports" / "apcd_k6_minimal_phase_state_candidate_route.md").read_text(
+        encoding="utf-8"
+    )
+
+    assert "No FDTD run was performed" in text
+    assert "not evaluated" in text
+    assert "not a steering result" in text
+    assert "route only" in text
+    assert "407.62069869398687 nm" in text
+    assert "This equals the K=6 dimer pitch scale" in text
+    assert "There is currently no real phase-state candidate library" in text

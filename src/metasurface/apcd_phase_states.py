@@ -45,6 +45,24 @@ APCD_PHASE_STATE_LIBRARY_FIELDS = [
 ]
 
 
+APCD_PHASE_STATE_CANDIDATE_ROUTE_FIELDS = [
+    "variant_id",
+    "candidate_type",
+    "description",
+    "pillar_1_length_nm",
+    "pillar_1_width_nm",
+    "pillar_1_rotation_deg",
+    "pillar_2_length_nm",
+    "pillar_2_width_nm",
+    "pillar_2_rotation_deg",
+    "changed_parameter",
+    "delta_nm",
+    "expected_role",
+    "requires_fDTD",
+    "notes",
+]
+
+
 DEFAULT_PHASE_STATE_THRESHOLDS = {
     "target_conversion_early": 0.5,
     "target_conversion_strong": 0.7,
@@ -66,6 +84,202 @@ DEFAULT_ALPHA_PASS_GEOMETRY = {
     "pillar_2_width_nm": 150.0,
     "pillar_2_rotation_deg": 112.5,
 }
+
+
+def baseline_alpha_pass_geometry() -> dict[str, float]:
+    return {
+        "pillar_1_length_nm": float(DEFAULT_ALPHA_PASS_GEOMETRY["pillar_1_length_nm"]),
+        "pillar_1_width_nm": float(DEFAULT_ALPHA_PASS_GEOMETRY["pillar_1_width_nm"]),
+        "pillar_1_rotation_deg": float(DEFAULT_ALPHA_PASS_GEOMETRY["pillar_1_rotation_deg"]),
+        "pillar_2_length_nm": float(DEFAULT_ALPHA_PASS_GEOMETRY["pillar_2_length_nm"]),
+        "pillar_2_width_nm": float(DEFAULT_ALPHA_PASS_GEOMETRY["pillar_2_width_nm"]),
+        "pillar_2_rotation_deg": float(DEFAULT_ALPHA_PASS_GEOMETRY["pillar_2_rotation_deg"]),
+    }
+
+
+def build_one_factor_geometry_variants() -> list[dict[str, object]]:
+    baseline = baseline_alpha_pass_geometry()
+    variant_specs = [
+        ("baseline", "none", 0.0, "validated alpha-pass reference"),
+        ("p1L_m10", "pillar_1_length_nm", -10.0, "test p1 length intrinsic phase sensitivity"),
+        ("p1L_m5", "pillar_1_length_nm", -5.0, "test p1 length intrinsic phase sensitivity"),
+        ("p1L_p5", "pillar_1_length_nm", 5.0, "test p1 length intrinsic phase sensitivity"),
+        ("p1L_p10", "pillar_1_length_nm", 10.0, "test p1 length intrinsic phase sensitivity"),
+        ("p1W_m5", "pillar_1_width_nm", -5.0, "test p1 width intrinsic phase sensitivity"),
+        ("p1W_p5", "pillar_1_width_nm", 5.0, "test p1 width intrinsic phase sensitivity"),
+        ("p2L_m5", "pillar_2_length_nm", -5.0, "test p2 length intrinsic phase sensitivity"),
+        ("p2L_p5", "pillar_2_length_nm", 5.0, "test p2 length intrinsic phase sensitivity"),
+        ("p2W_m10", "pillar_2_width_nm", -10.0, "test p2 width intrinsic phase sensitivity"),
+        ("p2W_m5", "pillar_2_width_nm", -5.0, "test p2 width intrinsic phase sensitivity"),
+        ("p2W_p5", "pillar_2_width_nm", 5.0, "test p2 width intrinsic phase sensitivity"),
+        ("p2W_p10", "pillar_2_width_nm", 10.0, "test p2 width intrinsic phase sensitivity"),
+    ]
+
+    rows = []
+    for variant_id, parameter, delta_nm, role in variant_specs:
+        geometry = dict(baseline)
+        if parameter != "none":
+            geometry[parameter] = float(geometry[parameter]) + delta_nm
+        row = {
+            "variant_id": variant_id,
+            "candidate_type": "baseline" if variant_id == "baseline" else "one_factor_geometry_variant",
+            "description": _variant_description(variant_id, parameter, delta_nm),
+            **geometry,
+            "changed_parameter": parameter,
+            "delta_nm": delta_nm,
+            "expected_role": role,
+            "requires_fDTD": "yes_future_order_resolved_jones_evaluation",
+            "notes": (
+                "route scaffold only; not evaluated; no FDTD run; not a steering result; "
+                "candidate must later use alpha/beta -> alpha*/beta* pass/fail criteria"
+            ),
+        }
+        validate_variant_geometry(row)
+        rows.append(row)
+    return rows
+
+
+def validate_variant_geometry(row: dict[str, object]) -> bool:
+    if float(row["pillar_1_rotation_deg"]) != 67.5:
+        raise ValueError("pillar_1_rotation_deg must remain 67.5 deg in this route")
+    if float(row["pillar_2_rotation_deg"]) != 112.5:
+        raise ValueError("pillar_2_rotation_deg must remain 112.5 deg in this route")
+    for key in (
+        "pillar_1_length_nm",
+        "pillar_1_width_nm",
+        "pillar_2_length_nm",
+        "pillar_2_width_nm",
+    ):
+        if float(row[key]) <= 0:
+            raise ValueError(f"{key} must be positive")
+    if float(row["pillar_2_length_nm"]) == 150.0 and float(row["pillar_2_width_nm"]) == 85.0:
+        raise ValueError("original beta-selective pillar 2 geometry 150 x 85 nm is not allowed")
+
+    baseline = baseline_alpha_pass_geometry()
+    changed = [
+        key
+        for key in (
+            "pillar_1_length_nm",
+            "pillar_1_width_nm",
+            "pillar_2_length_nm",
+            "pillar_2_width_nm",
+        )
+        if not math.isclose(float(row[key]), float(baseline[key]))
+    ]
+    if row["variant_id"] == "baseline":
+        if changed:
+            raise ValueError("baseline variant must not change geometry")
+    elif len(changed) != 1:
+        raise ValueError("one-factor variants must change exactly one geometry parameter")
+    return True
+
+
+def export_candidate_route_rows() -> list[dict[str, object]]:
+    return build_one_factor_geometry_variants()
+
+
+def write_candidate_route_csv(rows: Iterable[dict[str, object]], path: Path) -> Path:
+    row_list = list(rows)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=APCD_PHASE_STATE_CANDIDATE_ROUTE_FIELDS)
+        writer.writeheader()
+        writer.writerows(
+            {field: row.get(field, "") for field in APCD_PHASE_STATE_CANDIDATE_ROUTE_FIELDS}
+            for row in row_list
+        )
+    return path
+
+
+def write_minimal_candidate_route_report(
+    path: Path,
+    rows: Iterable[dict[str, object]],
+    *,
+    supercell_period_nm: float = 2445.724192163921,
+) -> Path:
+    row_list = list(rows)
+    detour_step_nm = displacement_for_phase_deg(60, order_m=1, supercell_period_nm=supercell_period_nm)
+    variant_ids = ", ".join(str(row["variant_id"]) for row in row_list)
+    lines = [
+        "# APCD K=6 Minimal Phase-State Candidate Route",
+        "",
+        "## Scope",
+        "",
+        "This 08-P3 report defines a minimal K=6 phase-state candidate generation route.",
+        "",
+        "No FDTD run was performed. No `.fsp` file was exported. This route is not evaluated and is not a steering result.",
+        "",
+        "This is route only: it does not build a phase-ramp supercell, does not generate a large candidate set, does not do K=7, and does not switch to TiO2/450 nm or ML.",
+        "",
+        "## Current Basis",
+        "",
+        "- Phase 1 alpha-pass dimer Gate 1 passed.",
+        "- The 07 order-resolved Jones pipeline has been opened for complex `J_xy` and `alpha/beta -> alpha*/beta*` evaluation.",
+        "- 08-P1 phase-state schema and pass/fail criteria have been completed.",
+        "- 08-P2 detour mechanism note has been completed.",
+        "- There is currently no real phase-state candidate library.",
+        "",
+        "## Why Detour Displacement Is Not Used Directly",
+        "",
+        f"- For the simple `order_m=+1` convention, a `60 deg` detour phase requires `{detour_step_nm} nm` displacement.",
+        f"- This is `Lambda/6`, using `Lambda = {supercell_period_nm} nm`.",
+        "- This equals the K=6 dimer pitch scale.",
+        "- Such a large move can reorder dimers rather than act as independent local phase tuning.",
+        "- It can also change supercell sampling, nearest-neighbor spacing, and coupling.",
+        "- Therefore detour displacement is kept as an analytic/sign-convention reference, not the final K=6 phase-state library.",
+        "",
+        "## Minimal Small-Geometry Variant Route",
+        "",
+        "Baseline alpha-pass dimer:",
+        "",
+        "- pillar 1: length `130 nm`, width `70 nm`, rotation `67.5 deg`",
+        "- pillar 2: length `85 nm`, width `150 nm`, rotation `112.5 deg`",
+        "",
+        "Candidate principle:",
+        "",
+        "- Use one-factor-at-a-time length/width perturbations.",
+        "- Keep both rotations fixed.",
+        "- Do not generate all parameter combinations.",
+        "- Do not use the original beta-selective pillar 2 geometry `150 x 85 nm`.",
+        "- Future evaluation must use the existing order-resolved Jones pipeline.",
+        "- Candidate pass/fail must use `phase_state_library_schema.csv` and `phase_state_pass_fail_criteria.md`.",
+        "",
+        f"Candidate count: {len(row_list)}",
+        "",
+        f"Variant IDs: `{variant_ids}`",
+        "",
+        "The chosen minimal set is baseline plus one-factor changes:",
+        "",
+        "- `pillar_1_length_nm`: baseline +/- 5 nm, +/- 10 nm",
+        "- `pillar_1_width_nm`: baseline +/- 5 nm",
+        "- `pillar_2_length_nm`: baseline +/- 5 nm",
+        "- `pillar_2_width_nm`: baseline +/- 5 nm, +/- 10 nm",
+        "",
+        "## Output CSV",
+        "",
+        "`outputs/apcd_k6_metagrating_633nm/phase_state_candidate_route.csv` records route candidates only.",
+        "",
+        "It deliberately does not include fake `t_alpha_star_from_alpha`, leakage, or phase metrics.",
+        "",
+        "## Next Evidence Needed",
+        "",
+        "- Run no simulation in this step.",
+        "- Later, evaluate only a very small selected set through the existing order-resolved Jones pipeline.",
+        "- Only after candidates show high `|t_{alpha*<-alpha}|`, low beta leakage, and small target-channel phase error should a K=6 phase-ramp scaffold be considered.",
+    ]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return path
+
+
+def write_minimal_candidate_route_outputs(
+    output_dir: Path,
+    report_path: Path,
+) -> tuple[Path, Path, list[dict[str, object]]]:
+    rows = export_candidate_route_rows()
+    csv_path = write_candidate_route_csv(rows, output_dir / "phase_state_candidate_route.csv")
+    written_report = write_minimal_candidate_route_report(report_path, rows)
+    return csv_path, written_report, rows
 
 
 def detour_phase_deg(
@@ -410,6 +624,13 @@ def write_phase_state_dry_run_outputs(output_dir: Path) -> tuple[Path, Path, lis
     schema_path = write_phase_state_library_schema(rows, output_dir / "phase_state_library_schema.csv")
     criteria_path = write_phase_state_pass_fail_criteria(output_dir / "phase_state_pass_fail_criteria.md")
     return schema_path, criteria_path, rows
+
+
+def _variant_description(variant_id: str, parameter: str, delta_nm: float) -> str:
+    if variant_id == "baseline":
+        return "validated alpha-pass baseline geometry; route reference only"
+    sign = "plus" if delta_nm > 0 else "minus"
+    return f"one-factor {parameter} {sign} {abs(delta_nm):g} nm from alpha-pass baseline"
 
 
 def _normalize_ramp_sign(ramp_sign: str) -> str:
