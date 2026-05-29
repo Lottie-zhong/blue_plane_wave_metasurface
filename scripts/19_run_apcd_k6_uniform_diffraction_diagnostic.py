@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import math
 import sys
 from pathlib import Path
 from types import ModuleType
@@ -107,7 +108,15 @@ def _run_one_input(fdtd_factory: Callable[[], object], label: str, run_log: list
         run_fdtd.run()
         run_log.append(f"{label}: fdtd.run completed")
         run_log.append(f"{label}: switchtolayout_after_run=False")
-        orders = extract_fdtd_grating_orders(run_fdtd, monitor_name="T", K=K)
+        extraction_diagnostics: list[str] = []
+        orders = extract_fdtd_grating_orders(
+            run_fdtd,
+            monitor_name="T",
+            K=K,
+            diagnostics=extraction_diagnostics,
+        )
+        for diagnostic in extraction_diagnostics:
+            run_log.append(f"{label}: {diagnostic}")
         run_log.append(f"{label}: grating power extraction success")
         vector_available = _orders_have_complex_vectors(orders)
         run_log.append(f"{label}: gratingvector complex extraction {'success' if vector_available else 'failed_or_unavailable'}")
@@ -179,8 +188,8 @@ def _build_order_resolved_jones_rows(
             rows.append(_empty_jones_row(order, "order missing in X or Y extraction"))
             continue
         j_xy = build_jones_xy_from_columns(
-            _xy_from_order_row(x_row),
-            _xy_from_order_row(y_row),
+            _source_normalized_xy_from_order_row(x_row),
+            _source_normalized_xy_from_order_row(y_row),
         )
         j_ab = transform_jones_xy_to_alpha_beta(j_xy, psi_deg=112.5, chi_deg=22.5)
         rows.append(
@@ -191,17 +200,21 @@ def _build_order_resolved_jones_rows(
                 expected_theta_deg=float(x_row.get("expected_theta_deg", "")),
                 J_xy=j_xy,
                 J_alpha_beta=j_ab,
-                notes="K=6 uniform scaffold diagnostic; not final metagrating",
+                notes=(
+                    "K=6 uniform scaffold diagnostic; gratingvector columns scaled by sqrt(total_transmission); "
+                    "not final metagrating"
+                ),
             ).to_schema_row(wavelength_nm=WAVELENGTH_NM, target_angle_deg=TARGET_ANGLE_DEG)
         )
     run_log.append("order-resolved Jones construction success")
     return rows, True
 
 
-def _xy_from_order_row(row: dict[str, object]) -> tuple[complex, complex]:
+def _source_normalized_xy_from_order_row(row: dict[str, object]) -> tuple[complex, complex]:
     ex = complex(float(row["Ex_order_complex_real"]), float(row["Ex_order_complex_imag"]))
     ey = complex(float(row["Ey_order_complex_real"]), float(row["Ey_order_complex_imag"]))
-    return (ex, ey)
+    scale = math.sqrt(max(float(row.get("total_transmission", 1.0)), 0.0))
+    return (scale * ex, scale * ey)
 
 
 def _find_order_row(rows: list[dict[str, object]], order_n: int) -> dict[str, object] | None:
@@ -332,6 +345,7 @@ def _write_summary(
         "",
         "## APCD Order-Resolved Metrics",
         "",
+        "Jones columns use `gratingvector` complex components scaled by `sqrt(total_transmission)` for source-normalized amplitudes.",
         *jones_lines,
         "",
         "## Next Step",

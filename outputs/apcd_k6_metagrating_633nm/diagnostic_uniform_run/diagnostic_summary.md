@@ -20,8 +20,8 @@ This diagnostic is only for validating the diffraction-order extraction pipeline
 - X input run: ok
 - Y input run: ok
 - grating power extraction: success
-- gratingvector or complex field extraction: failed
-- order-resolved Jones construction: failed
+- gratingvector or complex field extraction: success
+- order-resolved Jones construction: success
 
 ## Order Sign Convention
 
@@ -45,7 +45,12 @@ If m=+/-1 are not weak, do not claim success; first inspect finite aperture effe
 
 ## APCD Order-Resolved Metrics
 
-APCD order-resolved Jones metrics are not available in this diagnostic run.
+Jones columns use `gratingvector` complex components scaled by `sqrt(total_transmission)` for source-normalized amplitudes.
+| order_n | target_conversion | beta_to_target_leakage | target_order_ER_dB |
+|---:|---:|---:|---:|
+| -1 | 7.688278874009688e-06 | 3.937129619464333e-06 | 2.906493611148719 |
+| 0 | 0.9332337316784515 | 0.0034674988277662313 | 24.299741049028263 |
+| 1 | 3.972795835307968e-06 | 1.577187399463742e-06 | 4.012127821656683 |
 
 ## Next Step
 
@@ -53,15 +58,13 @@ If extraction succeeded, proceed to dimer phase-state mechanism design. If extra
 
 ## Run Log Tail
 
-- mode=run_real
-- X: setup loaded from D:\project\blue_plane_wave_metasurface\outputs\apcd_k6_metagrating_633nm\apcd_k6_metagrating_633nm_setup.fsp
-- X: source set to X-polarized input
-- X: pre_run_fsp_saved=D:\project\blue_plane_wave_metasurface\outputs\apcd_k6_metagrating_633nm\diagnostic_uniform_run\pre_run_X.fsp
 - X: pre_run_fsp_loaded=D:\project\blue_plane_wave_metasurface\outputs\apcd_k6_metagrating_633nm\diagnostic_uniform_run\pre_run_X.fsp
 - X: fdtd.run completed
 - X: switchtolayout_after_run=False
+- X: gratingvector('T',) returned type=ndarray, shape=(7, 1, 3), dtype=complex128
+- X: gratingvector normalized to order-vector rows=7
 - X: grating power extraction success
-- X: gratingvector complex extraction failed_or_unavailable
+- X: gratingvector complex extraction success
 - X: result_fsp_saved=D:\project\blue_plane_wave_metasurface\outputs\apcd_k6_metagrating_633nm\diagnostic_uniform_run\result_X.fsp
 - Y: setup loaded from D:\project\blue_plane_wave_metasurface\outputs\apcd_k6_metagrating_633nm\apcd_k6_metagrating_633nm_setup.fsp
 - Y: source set to Y-polarized input
@@ -69,7 +72,9 @@ If extraction succeeded, proceed to dimer phase-state mechanism design. If extra
 - Y: pre_run_fsp_loaded=D:\project\blue_plane_wave_metasurface\outputs\apcd_k6_metagrating_633nm\diagnostic_uniform_run\pre_run_Y.fsp
 - Y: fdtd.run completed
 - Y: switchtolayout_after_run=False
+- Y: gratingvector('T',) returned type=ndarray, shape=(7, 1, 3), dtype=complex128
+- Y: gratingvector normalized to order-vector rows=7
 - Y: grating power extraction success
-- Y: gratingvector complex extraction failed_or_unavailable
+- Y: gratingvector complex extraction success
 - Y: result_fsp_saved=D:\project\blue_plane_wave_metasurface\outputs\apcd_k6_metagrating_633nm\diagnostic_uniform_run\result_Y.fsp
-- order-resolved Jones unavailable: complex vector output extraction failed
+- order-resolved Jones construction success

@@ -6,6 +6,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SRC_DIR = REPO_ROOT / "src"
@@ -87,6 +89,21 @@ def test_fake_fdtd_extraction_calls_grating_commands_without_run() -> None:
     assert rows[1]["Ez_order_complex_real"] == 0.0
 
 
+def test_gratingvector_ndmp3_shape_extracts_complex_order_vectors() -> None:
+    np = pytest.importorskip("numpy")
+    fdtd = _FakeFDTDNDMP3(np)
+    diagnostics: list[str] = []
+
+    rows = extract_fdtd_grating_orders(fdtd, monitor_name="T", K=6, diagnostics=diagnostics)
+
+    assert len(rows) == 3
+    assert rows[0]["Ex_order_complex_real"] == 0.1
+    assert rows[1]["Ey_order_complex_imag"] == 0.5
+    assert rows[2]["Ez_order_complex_real"] == 0.7
+    assert any("shape=(3, 1, 1, 3)" in message for message in diagnostics)
+    assert any("normalized to order-vector rows=3" in message for message in diagnostics)
+
+
 def test_script_dry_run_writes_repo_outputs() -> None:
     script = REPO_ROOT / "scripts" / "17_extract_apcd_metagrating_diffraction_orders.py"
     script_text = script.read_text(encoding="utf-8")
@@ -150,3 +167,19 @@ class _FakeFDTD:
             [1.0 + 0.5j, 0.0 - 1.0j, 0.0 + 0.0j],
             [0.2 + 0.0j, 0.3 + 0.0j, 0.0 + 0.0j],
         ]
+
+
+class _FakeFDTDNDMP3(_FakeFDTD):
+    def __init__(self, np_module: object) -> None:
+        super().__init__()
+        self.np = np_module
+
+    def gratingvector(self, monitor_name: str) -> object:
+        self.calls.append(f"gratingvector:{monitor_name}")
+        return self.np.array(
+            [
+                [[[0.1 + 0.2j, 0.3 + 0.4j, 0.5 + 0.6j]]],
+                [[[1.0 + 0.0j, 0.2 + 0.5j, 0.0 + 0.0j]]],
+                [[[0.2 + 0.0j, 0.3 + 0.0j, 0.7 + 0.8j]]],
+            ]
+        )

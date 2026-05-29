@@ -107,6 +107,23 @@ def test_missing_gratingvector_marks_jones_unavailable() -> None:
     assert sum(1 for fdtd in instances if fdtd.run_called) == 2
 
 
+def test_jones_columns_are_source_normalized_from_total_transmission() -> None:
+    module = _load_script_module()
+
+    ex, ey = module._source_normalized_xy_from_order_row(
+        {
+            "Ex_order_complex_real": "0.6",
+            "Ex_order_complex_imag": "0.8",
+            "Ey_order_complex_real": "0.0",
+            "Ey_order_complex_imag": "-1.0",
+            "total_transmission": "0.25",
+        }
+    )
+
+    assert ex == 0.3 + 0.4j
+    assert ey == 0.0 - 0.5j
+
+
 def test_dry_run_cli_does_not_run_fdtd() -> None:
     _clean_output_dir()
     completed = subprocess.run(

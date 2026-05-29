@@ -414,19 +414,25 @@ def summarize_order_efficiencies(rows: list[dict[str, object]], epsilon: float =
     }
 
 
-def extract_fdtd_grating_orders(fdtd: object, monitor_name: str = "T", K: int = 0) -> list[dict[str, object]]:
+def extract_fdtd_grating_orders(
+    fdtd: object,
+    monitor_name: str = "T",
+    K: int = 0,
+    diagnostics: list[str] | None = None,
+) -> list[dict[str, object]]:
     order_n = _as_list(fdtd.gratingn(monitor_name))
     order_m = _as_list(fdtd.gratingm(monitor_name))
     ux = _as_list(fdtd.gratingu1(monitor_name))
     uy = _as_list(fdtd.gratingu2(monitor_name))
     grating_fraction = _as_list(fdtd.grating(monitor_name))
     total_transmission = float(fdtd.transmission(monitor_name))
-    vectors = _try_gratingvector(fdtd, monitor_name)
+    vectors = _try_gratingvector(fdtd, monitor_name, diagnostics=diagnostics)
+    order_vectors = _order_vectors_from_gratingvector(vectors, frequency_index=0, diagnostics=diagnostics)
 
     count = len(grating_fraction)
     rows: list[dict[str, object]] = []
     for index in range(count):
-        vector = _vector_at(vectors, index)
+        vector = _vector_at(order_vectors, index)
         rows.append(
             {
                 "K": K,
@@ -573,13 +579,67 @@ def write_diffraction_dry_run_outputs(
     return schema_path, plan_path, rows
 
 
-def _try_gratingvector(fdtd: object, monitor_name: str) -> list[object] | None:
+def _try_gratingvector(
+    fdtd: object,
+    monitor_name: str,
+    diagnostics: list[str] | None = None,
+) -> object | None:
     if not hasattr(fdtd, "gratingvector"):
+        _append_diagnostic(diagnostics, "gratingvector unavailable: fdtd object has no gratingvector method")
+        return None
+    for args in ((monitor_name,), (monitor_name, 1)):
+        try:
+            result = fdtd.gratingvector(*args)
+            _append_diagnostic(
+                diagnostics,
+                f"gratingvector{args} returned {_describe_array_like(result)}",
+            )
+            return result
+        except Exception as exc:
+            _append_diagnostic(
+                diagnostics,
+                f"gratingvector{args} failed: {type(exc).__name__}: {exc}",
+            )
+    return None
+
+
+def _order_vectors_from_gratingvector(
+    vectors: object | None,
+    *,
+    frequency_index: int,
+    diagnostics: list[str] | None = None,
+) -> list[object] | None:
+    if vectors is None:
         return None
     try:
-        return _as_list(fdtd.gratingvector(monitor_name))
-    except Exception:
-        return None
+        import numpy as np
+
+        array = np.asarray(vectors)
+        if array.ndim >= 2 and array.shape[-1] == 3:
+            if array.ndim == 4:
+                if frequency_index >= array.shape[2]:
+                    _append_diagnostic(
+                        diagnostics,
+                        f"gratingvector frequency_index={frequency_index} out of range for shape={array.shape}",
+                    )
+                    return None
+                array = array[:, :, frequency_index, :]
+            rows = array.reshape((-1, 3))
+            _append_diagnostic(diagnostics, f"gratingvector normalized to order-vector rows={len(rows)}")
+            return [tuple(row) for row in rows]
+    except Exception as exc:
+        _append_diagnostic(
+            diagnostics,
+            f"gratingvector ndarray normalization failed: {type(exc).__name__}: {exc}",
+        )
+
+    values = _as_list(vectors)
+    if values and all(isinstance(value, (list, tuple)) and len(value) >= 3 for value in values):
+        _append_diagnostic(diagnostics, f"gratingvector normalized from list rows={len(values)}")
+        return values
+
+    _append_diagnostic(diagnostics, "gratingvector could not be normalized to per-order Ex/Ey/Ez rows")
+    return None
 
 
 def _vector_at(vectors: list[object] | None, index: int) -> tuple[complex, complex, complex] | None:
@@ -589,6 +649,21 @@ def _vector_at(vectors: list[object] | None, index: int) -> tuple[complex, compl
     if isinstance(vector, (list, tuple)) and len(vector) >= 3:
         return (complex(vector[0]), complex(vector[1]), complex(vector[2]))
     return None
+
+
+def _describe_array_like(value: object) -> str:
+    try:
+        import numpy as np
+
+        array = np.asarray(value)
+        return f"type={type(value).__name__}, shape={array.shape}, dtype={array.dtype}"
+    except Exception:
+        return f"type={type(value).__name__}"
+
+
+def _append_diagnostic(diagnostics: list[str] | None, message: str) -> None:
+    if diagnostics is not None:
+        diagnostics.append(message)
 
 
 def _as_list(value: object) -> list[object]:
