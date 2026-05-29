@@ -3,9 +3,11 @@ from __future__ import annotations
 import csv
 import math
 from pathlib import Path
+from types import ModuleType
 from typing import Iterable
 
-from metasurface.config import APCDSingleDimerConfig
+from metasurface.config import APCDDimerMaterialConfig, APCDSingleDimerConfig, RuntimeConfig, load_runtime_config
+from metasurface.lumapi_runner import import_lumapi
 
 
 APCD_METAGRATING_GEOMETRY_FIELDS = [
@@ -26,6 +28,34 @@ APCD_METAGRATING_GEOMETRY_FIELDS = [
     "wavelength_nm",
     "target_angle_deg",
 ]
+
+
+def read_apcd_metagrating_geometry_csv(path: Path) -> list[dict[str, float | int]]:
+    with path.open("r", newline="", encoding="utf-8") as handle:
+        reader = csv.DictReader(handle)
+        rows = []
+        for row in reader:
+            rows.append(
+                {
+                    "K": int(row["K"]),
+                    "dimer_index": int(row["dimer_index"]),
+                    "pillar_index_in_dimer": int(row["pillar_index_in_dimer"]),
+                    "global_pillar_index": int(row["global_pillar_index"]),
+                    "x_nm": float(row["x_nm"]),
+                    "y_nm": float(row["y_nm"]),
+                    "length_nm": float(row["length_nm"]),
+                    "width_nm": float(row["width_nm"]),
+                    "height_nm": float(row["height_nm"]),
+                    "rotation_deg": float(row["rotation_deg"]),
+                    "frac_x": float(row["frac_x"]),
+                    "frac_y": float(row["frac_y"]),
+                    "dimer_pitch_nm": float(row["dimer_pitch_nm"]),
+                    "supercell_period_nm": float(row["supercell_period_nm"]),
+                    "wavelength_nm": float(row["wavelength_nm"]),
+                    "target_angle_deg": float(row["target_angle_deg"]),
+                }
+            )
+    return rows
 
 
 def calculate_supercell_period_nm(wavelength_nm: float, target_angle_deg: float) -> float:
@@ -185,3 +215,269 @@ def write_apcd_metagrating_dry_run_outputs(
     csv_path = write_apcd_metagrating_geometry_csv(rows, output_dir / "geometry.csv")
     summary_path = write_apcd_metagrating_geometry_summary(rows, config, output_dir / "geometry_summary.md")
     return csv_path, summary_path, rows
+
+
+def validate_apcd_metagrating_geometry_rows(rows: list[dict[str, float | int]], K: int) -> None:
+    if len(rows) != 2 * K:
+        raise ValueError(f"K={K} geometry must contain {2 * K} nanopillars, found {len(rows)}")
+    if {int(row["K"]) for row in rows} != {K}:
+        raise ValueError(f"All geometry rows must have K={K}")
+    if len({int(row["global_pillar_index"]) for row in rows}) != len(rows):
+        raise ValueError("global_pillar_index values must be unique")
+    for dimer_index in range(K):
+        dimer_rows = [row for row in rows if int(row["dimer_index"]) == dimer_index]
+        if len(dimer_rows) != 2:
+            raise ValueError(f"dimer_index={dimer_index} must contain exactly 2 nanopillars")
+
+    for row in rows:
+        pillar_index = int(row["pillar_index_in_dimer"])
+        length = float(row["length_nm"])
+        width = float(row["width_nm"])
+        rotation = float(row["rotation_deg"])
+        if pillar_index == 1:
+            if not (math.isclose(length, 130.0) and math.isclose(width, 70.0) and math.isclose(rotation, 67.5)):
+                raise ValueError("pillar 1 must keep the alpha-pass 130 x 70 nm, 67.5 deg geometry")
+        elif pillar_index == 2:
+            if math.isclose(length, 150.0) and math.isclose(width, 85.0):
+                raise ValueError("original beta-selective pillar 2 geometry 150 x 85 nm is not allowed")
+            if not (math.isclose(length, 85.0) and math.isclose(width, 150.0) and math.isclose(rotation, 112.5)):
+                raise ValueError("pillar 2 must keep the alpha-pass 85 x 150 nm, 112.5 deg geometry")
+        else:
+            raise ValueError("pillar_index_in_dimer must be 1 or 2")
+
+
+def export_apcd_metagrating_setup_only(
+    config: APCDSingleDimerConfig,
+    rows: list[dict[str, float | int]],
+    runtime: RuntimeConfig,
+    lumapi: ModuleType,
+    fsp_output: Path,
+) -> dict[str, object]:
+    K = int(rows[0]["K"]) if rows else 0
+    validate_alpha_pass_dimer_source(config)
+    validate_apcd_metagrating_geometry_rows(rows, K)
+
+    fdtd = None
+    try:
+        fdtd = lumapi.FDTD(hide=runtime.hide_gui)
+        _build_apcd_metagrating_setup_model(fdtd, config, rows)
+        fsp_output.parent.mkdir(parents=True, exist_ok=True)
+        fdtd.save(str(fsp_output))
+    finally:
+        if fdtd is not None:
+            try:
+                fdtd.close()
+            except Exception:
+                pass
+
+    return apcd_metagrating_setup_summary_row(rows, fsp_output)
+
+
+def export_apcd_metagrating_setup_only_from_runtime_file(
+    config: APCDSingleDimerConfig,
+    geometry_csv: Path,
+    runtime_path: Path,
+    fsp_output: Path,
+) -> dict[str, object]:
+    rows = read_apcd_metagrating_geometry_csv(geometry_csv)
+    runtime = load_runtime_config(runtime_path)
+    if not runtime.enable_lumerical:
+        raise RuntimeError("runtime.enable_lumerical is false; setup-only .fsp export requires lumapi")
+    lumapi = import_lumapi(runtime)
+    return export_apcd_metagrating_setup_only(config, rows, runtime, lumapi, fsp_output)
+
+
+def apcd_metagrating_setup_summary_row(
+    rows: list[dict[str, float | int]],
+    fsp_output: Path,
+) -> dict[str, object]:
+    if not rows:
+        raise ValueError("Cannot summarize an empty metagrating setup")
+    first = rows[0]
+    return {
+        "K": int(first["K"]),
+        "nanopillar_count": len(rows),
+        "supercell_period_nm": float(first["supercell_period_nm"]),
+        "dimer_pitch_nm": float(first["dimer_pitch_nm"]),
+        "wavelength_nm": float(first["wavelength_nm"]),
+        "target_angle_deg": float(first["target_angle_deg"]),
+        "fsp_output": str(fsp_output),
+        "status": "setup_only",
+        "fdtd_run_called": False,
+    }
+
+
+def write_apcd_metagrating_setup_summary(
+    row: dict[str, object],
+    geometry_csv: Path,
+    path: Path,
+) -> Path:
+    K = int(row["K"])
+    lines = [
+        f"# APCD K={K} Dimer Metagrating Setup-Only Export",
+        "",
+        "- status: setup_only",
+        f"- K: {K}",
+        f"- nanopillar_count: {row['nanopillar_count']}",
+        f"- supercell_period_nm: {row['supercell_period_nm']}",
+        f"- dimer_pitch_nm: {row['dimer_pitch_nm']}",
+        f"- wavelength_nm: {row['wavelength_nm']}",
+        f"- target_angle_deg: {row['target_angle_deg']}",
+        f"- geometry_source_csv: {geometry_csv}",
+        f"- output_fsp_path: {row['fsp_output']}",
+        "- fdtd_run_called: False",
+        "",
+        "Alpha-pass switched dimer geometry:",
+        "",
+        "- pillar 1: 130 x 70 nm, rotation 67.5 deg",
+        "- pillar 2: 85 x 150 nm, rotation 112.5 deg",
+        "- pillar_2_switched_length_width: True",
+        "",
+        "Scope note:",
+        "",
+        "- Current .fsp is setup-only.",
+        "- FDTD was not run.",
+        "- This is not an FDTD result.",
+        "- No far-field or diffraction-order result has been extracted.",
+        "- Current structure is only a K-dimer scaffold.",
+        "- Future work must inspect or introduce the t_{alpha*<-alpha} phase-gradient design logic.",
+        "- Future real runs must evaluate diffraction-order efficiency, not only total T.",
+    ]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return path
+
+
+def write_apcd_metagrating_gui_checklist(row: dict[str, object], path: Path) -> Path:
+    K = int(row["K"])
+    expected_pitch = "407.62 nm" if K == 6 else "349.39 nm" if K == 7 else "Lambda / K"
+    lines = [
+        f"# APCD K={K} Metagrating GUI Inspection Checklist",
+        "",
+        f"- [ ] Confirm there are 2K = {row['nanopillar_count']} nanopillars.",
+        "- [ ] Confirm x span is about 2.4457 um.",
+        "- [ ] Confirm y span is about 340 nm.",
+        f"- [ ] Confirm K={K} dimer pitch is about {expected_pitch}.",
+        "- [ ] Confirm pillar 2 is 85 x 150 nm, not 150 x 85 nm.",
+        "- [ ] Confirm source is normal incidence.",
+        "- [ ] Confirm T_fields monitor is on the transmission side.",
+        "- [ ] Confirm T power monitor is on the transmission side.",
+        "- [ ] Confirm z boundaries are PML.",
+        "- [ ] Confirm x/y boundaries are periodic or Bloch-compatible.",
+        "- [ ] Confirm c-Si nanopillars and Al2O3 substrate/material settings.",
+        "- [ ] Confirm nm-to-um unit conversion is correct in the GUI.",
+        "- [ ] Confirm this setup has no run results.",
+    ]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return path
+
+
+def _build_apcd_metagrating_setup_model(
+    fdtd: object,
+    config: APCDSingleDimerConfig,
+    rows: list[dict[str, float | int]],
+) -> None:
+    nm = 1e-9
+    geometry = config.geometry
+    simulation = config.simulation
+    material = config.material
+
+    first = rows[0]
+    x_span = float(first["supercell_period_nm"]) * nm
+    y_span = geometry.period_y_nm * nm
+    height = geometry.height_nm * nm
+    substrate_thickness = simulation.substrate_thickness_nm * nm
+    wavelength = config.target.wavelength_nm * nm
+
+    z_min = -substrate_thickness
+    z_max = height + simulation.z_padding_above_nm * nm
+    source_z = -simulation.source_offset_nm * nm
+    monitor_z = height + simulation.monitor_offset_nm * nm
+
+    fdtd.switchtolayout()
+    fdtd.deleteall()
+
+    fdtd.addfdtd()
+    fdtd.set("dimension", "3D")
+    fdtd.set("x span", x_span)
+    fdtd.set("y span", y_span)
+    fdtd.set("z min", z_min)
+    fdtd.set("z max", z_max)
+    fdtd.set("x min bc", "Periodic")
+    fdtd.set("x max bc", "Periodic")
+    fdtd.set("y min bc", "Periodic")
+    fdtd.set("y max bc", "Periodic")
+    fdtd.set("z min bc", "PML")
+    fdtd.set("z max bc", "PML")
+    fdtd.set("mesh accuracy", simulation.mesh_accuracy)
+    fdtd.set("simulation time", simulation.simulation_time_fs * 1e-15)
+
+    fdtd.addrect()
+    fdtd.set("name", "substrate")
+    fdtd.set("x span", x_span)
+    fdtd.set("y span", y_span)
+    fdtd.set("z min", z_min)
+    fdtd.set("z max", 0)
+    _set_metagrating_material(fdtd, material, is_substrate=True)
+
+    for row in rows:
+        fdtd.addrect()
+        fdtd.set(
+            "name",
+            f"nanopillar_{int(row['global_pillar_index']):02d}_d{int(row['dimer_index'])}_p{int(row['pillar_index_in_dimer'])}",
+        )
+        fdtd.set("x", float(row["x_nm"]) * nm)
+        fdtd.set("y", float(row["y_nm"]) * nm)
+        fdtd.set("x span", float(row["length_nm"]) * nm)
+        fdtd.set("y span", float(row["width_nm"]) * nm)
+        fdtd.set("z min", 0)
+        fdtd.set("z max", height)
+        fdtd.set("first axis", "z")
+        fdtd.set("rotation 1", float(row["rotation_deg"]))
+        _set_metagrating_material(fdtd, material, is_substrate=False)
+
+    _add_normal_incidence_plane_wave(fdtd, x_span, y_span, source_z, wavelength)
+
+    fdtd.addpower()
+    fdtd.set("name", "T")
+    fdtd.set("monitor type", "2D Z-normal")
+    fdtd.set("x span", x_span)
+    fdtd.set("y span", y_span)
+    fdtd.set("z", monitor_z)
+
+    fdtd.addprofile()
+    fdtd.set("name", "T_fields")
+    fdtd.set("monitor type", "2D Z-normal")
+    fdtd.set("x span", x_span)
+    fdtd.set("y span", y_span)
+    fdtd.set("z", monitor_z)
+
+
+def _set_metagrating_material(fdtd: object, material: APCDDimerMaterialConfig, is_substrate: bool) -> None:
+    material_name = material.substrate_material_lumerical if is_substrate else material.meta_material_lumerical
+    material_index = material.substrate_index if is_substrate else material.meta_index
+    fdtd.set("material", material_name)
+    if material_name == "<Object defined dielectric>" and material_index is not None:
+        fdtd.set("index", material_index)
+
+
+def _add_normal_incidence_plane_wave(
+    fdtd: object,
+    x_span: float,
+    y_span: float,
+    z: float,
+    wavelength: float,
+) -> None:
+    fdtd.addplane()
+    fdtd.set("name", "source_x")
+    fdtd.set("injection axis", "z")
+    fdtd.set("direction", "Forward")
+    fdtd.set("x span", x_span)
+    fdtd.set("y span", y_span)
+    fdtd.set("z", z)
+    fdtd.set("wavelength start", wavelength)
+    fdtd.set("wavelength stop", wavelength)
+    fdtd.set("polarization angle", 0)
+    fdtd.set("phase", 0)
+    fdtd.set("amplitude", 1)
