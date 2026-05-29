@@ -1,0 +1,20 @@
+mode=run_real
+X: setup loaded from D:\project\blue_plane_wave_metasurface\outputs\apcd_k6_metagrating_633nm\apcd_k6_metagrating_633nm_setup.fsp
+X: source set to X-polarized input
+X: pre_run_fsp_saved=D:\project\blue_plane_wave_metasurface\outputs\apcd_k6_metagrating_633nm\diagnostic_uniform_run\pre_run_X.fsp
+X: pre_run_fsp_loaded=D:\project\blue_plane_wave_metasurface\outputs\apcd_k6_metagrating_633nm\diagnostic_uniform_run\pre_run_X.fsp
+X: fdtd.run completed
+X: switchtolayout_after_run=False
+X: grating power extraction success
+X: gratingvector complex extraction failed_or_unavailable
+X: result_fsp_saved=D:\project\blue_plane_wave_metasurface\outputs\apcd_k6_metagrating_633nm\diagnostic_uniform_run\result_X.fsp
+Y: setup loaded from D:\project\blue_plane_wave_metasurface\outputs\apcd_k6_metagrating_633nm\apcd_k6_metagrating_633nm_setup.fsp
+Y: source set to Y-polarized input
+Y: pre_run_fsp_saved=D:\project\blue_plane_wave_metasurface\outputs\apcd_k6_metagrating_633nm\diagnostic_uniform_run\pre_run_Y.fsp
+Y: pre_run_fsp_loaded=D:\project\blue_plane_wave_metasurface\outputs\apcd_k6_metagrating_633nm\diagnostic_uniform_run\pre_run_Y.fsp
+Y: fdtd.run completed
+Y: switchtolayout_after_run=False
+Y: grating power extraction success
+Y: gratingvector complex extraction failed_or_unavailable
+Y: result_fsp_saved=D:\project\blue_plane_wave_metasurface\outputs\apcd_k6_metagrating_633nm\diagnostic_uniform_run\result_Y.fsp
+order-resolved Jones unavailable: complex vector output extraction failed
