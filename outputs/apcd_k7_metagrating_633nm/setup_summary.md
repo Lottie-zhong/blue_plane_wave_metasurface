@@ -10,6 +10,9 @@
 - geometry_source_csv: D:\project\blue_plane_wave_metasurface\outputs\apcd_k7_metagrating_633nm\geometry.csv
 - output_fsp_path: D:\project\blue_plane_wave_metasurface\outputs\apcd_k7_metagrating_633nm\apcd_k7_metagrating_633nm_setup.fsp
 - fdtd_run_called: False
+- dimer_group_count: 7
+- pillars_per_dimer_group: 2
+- group_names: dimer_00, dimer_01, dimer_02, dimer_03, dimer_04, dimer_05, dimer_06
 
 Alpha-pass switched dimer geometry:
 
@@ -26,3 +29,11 @@ Scope note:
 - Current structure is only a K-dimer scaffold.
 - Future work must inspect or introduce the t_{alpha*<-alpha} phase-gradient design logic.
 - Future real runs must evaluate diffraction-order efficiency, not only total T.
+
+Dimer grouping:
+
+- Each APCD dimer is represented as one structure group.
+- Each structure group contains two nanopillars.
+- Group names are ordered as dimer_00, dimer_01, dimer_02, dimer_03, dimer_04, dimer_05, dimer_06.
+- This grouping is for GUI inspection and future dimer-level phase-gradient design.
+- Geometry is unchanged from the previous setup export.

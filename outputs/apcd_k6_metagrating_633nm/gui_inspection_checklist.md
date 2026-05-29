@@ -1,6 +1,10 @@
 # APCD K=6 Metagrating GUI Inspection Checklist
 
 - [ ] Confirm there are 2K = 12 nanopillars.
+- [ ] Confirm object tree contains K = 6 dimer structure groups.
+- [ ] Confirm each dimer group contains exactly 2 nanopillars.
+- [ ] Confirm dimer group names are ordered from dimer_00 to dimer_05.
+- [ ] Confirm grouping did not change pillar geometry or positions.
 - [ ] Confirm x span is about 2.4457 um.
 - [ ] Confirm y span is about 340 nm.
 - [ ] Confirm K=6 dimer pitch is about 407.62 nm.

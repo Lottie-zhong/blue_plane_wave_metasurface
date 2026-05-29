@@ -294,14 +294,18 @@ def apcd_metagrating_setup_summary_row(
     if not rows:
         raise ValueError("Cannot summarize an empty metagrating setup")
     first = rows[0]
+    K = int(first["K"])
     return {
-        "K": int(first["K"]),
+        "K": K,
         "nanopillar_count": len(rows),
         "supercell_period_nm": float(first["supercell_period_nm"]),
         "dimer_pitch_nm": float(first["dimer_pitch_nm"]),
         "wavelength_nm": float(first["wavelength_nm"]),
         "target_angle_deg": float(first["target_angle_deg"]),
         "fsp_output": str(fsp_output),
+        "dimer_group_count": K,
+        "pillars_per_dimer_group": 2,
+        "dimer_group_names": ", ".join(f"dimer_{index:02d}" for index in range(K)),
         "status": "setup_only",
         "fdtd_run_called": False,
     }
@@ -326,6 +330,9 @@ def write_apcd_metagrating_setup_summary(
         f"- geometry_source_csv: {geometry_csv}",
         f"- output_fsp_path: {row['fsp_output']}",
         "- fdtd_run_called: False",
+        f"- dimer_group_count: {row['dimer_group_count']}",
+        f"- pillars_per_dimer_group: {row['pillars_per_dimer_group']}",
+        f"- group_names: {row['dimer_group_names']}",
         "",
         "Alpha-pass switched dimer geometry:",
         "",
@@ -342,6 +349,14 @@ def write_apcd_metagrating_setup_summary(
         "- Current structure is only a K-dimer scaffold.",
         "- Future work must inspect or introduce the t_{alpha*<-alpha} phase-gradient design logic.",
         "- Future real runs must evaluate diffraction-order efficiency, not only total T.",
+        "",
+        "Dimer grouping:",
+        "",
+        "- Each APCD dimer is represented as one structure group.",
+        "- Each structure group contains two nanopillars.",
+        f"- Group names are ordered as {row['dimer_group_names']}.",
+        "- This grouping is for GUI inspection and future dimer-level phase-gradient design.",
+        "- Geometry is unchanged from the previous setup export.",
     ]
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -355,6 +370,10 @@ def write_apcd_metagrating_gui_checklist(row: dict[str, object], path: Path) -> 
         f"# APCD K={K} Metagrating GUI Inspection Checklist",
         "",
         f"- [ ] Confirm there are 2K = {row['nanopillar_count']} nanopillars.",
+        f"- [ ] Confirm object tree contains K = {K} dimer structure groups.",
+        "- [ ] Confirm each dimer group contains exactly 2 nanopillars.",
+        f"- [ ] Confirm dimer group names are ordered from dimer_00 to dimer_{K - 1:02d}.",
+        "- [ ] Confirm grouping did not change pillar geometry or positions.",
         "- [ ] Confirm x span is about 2.4457 um.",
         "- [ ] Confirm y span is about 340 nm.",
         f"- [ ] Confirm K={K} dimer pitch is about {expected_pitch}.",
@@ -421,21 +440,29 @@ def _build_apcd_metagrating_setup_model(
     fdtd.set("z max", 0)
     _set_metagrating_material(fdtd, material, is_substrate=True)
 
-    for row in rows:
-        fdtd.addrect()
-        fdtd.set(
-            "name",
-            f"nanopillar_{int(row['global_pillar_index']):02d}_d{int(row['dimer_index'])}_p{int(row['pillar_index_in_dimer'])}",
+    K = int(first["K"])
+    for dimer_index in range(K):
+        group_name = f"dimer_{dimer_index:02d}"
+        fdtd.addstructuregroup()
+        fdtd.set("name", group_name)
+        _set_group_scope(fdtd, f"::model::{group_name}")
+        dimer_rows = sorted(
+            (row for row in rows if int(row["dimer_index"]) == dimer_index),
+            key=lambda row: int(row["pillar_index_in_dimer"]),
         )
-        fdtd.set("x", float(row["x_nm"]) * nm)
-        fdtd.set("y", float(row["y_nm"]) * nm)
-        fdtd.set("x span", float(row["length_nm"]) * nm)
-        fdtd.set("y span", float(row["width_nm"]) * nm)
-        fdtd.set("z min", 0)
-        fdtd.set("z max", height)
-        fdtd.set("first axis", "z")
-        fdtd.set("rotation 1", float(row["rotation_deg"]))
-        _set_metagrating_material(fdtd, material, is_substrate=False)
+        for row in dimer_rows:
+            fdtd.addrect()
+            fdtd.set("name", f"pillar_{int(row['pillar_index_in_dimer'])}")
+            fdtd.set("x", float(row["x_nm"]) * nm)
+            fdtd.set("y", float(row["y_nm"]) * nm)
+            fdtd.set("x span", float(row["length_nm"]) * nm)
+            fdtd.set("y span", float(row["width_nm"]) * nm)
+            fdtd.set("z min", 0)
+            fdtd.set("z max", height)
+            fdtd.set("first axis", "z")
+            fdtd.set("rotation 1", float(row["rotation_deg"]))
+            _set_metagrating_material(fdtd, material, is_substrate=False)
+        _set_group_scope(fdtd, "::model")
 
     _add_normal_incidence_plane_wave(fdtd, x_span, y_span, source_z, wavelength)
 
@@ -460,6 +487,14 @@ def _set_metagrating_material(fdtd: object, material: APCDDimerMaterialConfig, i
     fdtd.set("material", material_name)
     if material_name == "<Object defined dielectric>" and material_index is not None:
         fdtd.set("index", material_index)
+
+
+def _set_group_scope(fdtd: object, scope: str) -> None:
+    if hasattr(fdtd, "groupscope"):
+        fdtd.groupscope(scope)
+    else:
+        escaped = scope.replace("\\", "\\\\").replace('"', '\\"')
+        fdtd.eval(f'groupscope("{escaped}");')
 
 
 def _add_normal_incidence_plane_wave(

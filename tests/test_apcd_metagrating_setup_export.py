@@ -44,6 +44,9 @@ def test_k6_setup_export_uses_12_pillars_and_does_not_run(tmp_path: Path) -> Non
     assert lumapi.fdtd.run_called is False
     assert lumapi.fdtd.saved_path == str(fsp_output)
     assert lumapi.fdtd.addrect_count == 13
+    assert lumapi.fdtd.addstructuregroup_count == 6
+    assert len(lumapi.fdtd.group_pillars) == 6
+    assert all(count == 2 for count in lumapi.fdtd.group_pillars.values())
     assert lumapi.fdtd.addplane_count == 1
     assert "T" in lumapi.fdtd.object_names
     assert "T_fields" in lumapi.fdtd.object_names
@@ -62,6 +65,9 @@ def test_k7_setup_export_uses_14_pillars_and_does_not_run(tmp_path: Path) -> Non
     assert lumapi.fdtd.run_called is False
     assert lumapi.fdtd.saved_path == str(fsp_output)
     assert lumapi.fdtd.addrect_count == 15
+    assert lumapi.fdtd.addstructuregroup_count == 7
+    assert len(lumapi.fdtd.group_pillars) == 7
+    assert all(count == 2 for count in lumapi.fdtd.group_pillars.values())
     assert lumapi.fdtd.addplane_count == 1
 
 
@@ -84,8 +90,12 @@ def test_setup_summary_and_gui_checklist_are_written(tmp_path: Path) -> None:
     assert "This is not an FDTD result" in summary_text
     assert "FDTD was not run" in summary_text
     assert "t_{alpha*<-alpha} phase-gradient" in summary_text
+    assert "Each APCD dimer is represented as one structure group" in summary_text
+    assert "Each structure group contains two nanopillars" in summary_text
     assert "2K = 12 nanopillars" in checklist_text
     assert "pillar 2 is 85 x 150 nm, not 150 x 85 nm" in checklist_text
+    assert "object tree contains K = 6 dimer structure groups" in checklist_text
+    assert "dimer group names are ordered from dimer_00 to dimer_05" in checklist_text
 
 
 def test_setup_export_rejects_wrong_pillar_count() -> None:
@@ -145,8 +155,11 @@ class _FakeFDTD:
         self.run_called = False
         self.saved_path = ""
         self.addrect_count = 0
+        self.addstructuregroup_count = 0
         self.addplane_count = 0
         self.object_names: list[str] = []
+        self.current_scope = "::model"
+        self.group_pillars: dict[str, int] = {}
         self._current_object = ""
 
     def switchtolayout(self) -> None:
@@ -166,6 +179,10 @@ class _FakeFDTD:
         self.addplane_count += 1
         self._current_object = "plane"
 
+    def addstructuregroup(self) -> None:
+        self.addstructuregroup_count += 1
+        self._current_object = "structuregroup"
+
     def addpower(self) -> None:
         self._current_object = "power"
 
@@ -175,6 +192,14 @@ class _FakeFDTD:
     def set(self, name: str, value: object) -> None:
         if name == "name":
             self.object_names.append(str(value))
+            if self._current_object == "structuregroup":
+                self.group_pillars[str(value)] = 0
+            if self._current_object == "rect" and str(value).startswith("pillar_"):
+                group_name = self.current_scope.split("::")[-1]
+                self.group_pillars[group_name] = self.group_pillars.get(group_name, 0) + 1
+
+    def groupscope(self, scope: str) -> None:
+        self.current_scope = scope
 
     def save(self, path: str) -> None:
         self.saved_path = path
