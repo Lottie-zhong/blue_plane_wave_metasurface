@@ -30,6 +30,25 @@ APCD_METAGRATING_GEOMETRY_FIELDS = [
 ]
 
 
+APCD_PHASE_GRADIENT_FIELDS = [
+    "K",
+    "dimer_index",
+    "x_nm",
+    "dimer_pitch_nm",
+    "supercell_period_nm",
+    "target_angle_deg",
+    "uniform_phase_rad",
+    "plus_ramp_phase_rad",
+    "plus_ramp_phase_deg",
+    "minus_ramp_phase_rad",
+    "minus_ramp_phase_deg",
+    "plus_ramp_complex_real",
+    "plus_ramp_complex_imag",
+    "minus_ramp_complex_real",
+    "minus_ramp_complex_imag",
+]
+
+
 def read_apcd_metagrating_geometry_csv(path: Path) -> list[dict[str, float | int]]:
     with path.open("r", newline="", encoding="utf-8") as handle:
         reader = csv.DictReader(handle)
@@ -56,6 +75,209 @@ def read_apcd_metagrating_geometry_csv(path: Path) -> list[dict[str, float | int
                 }
             )
     return rows
+
+
+def build_phase_gradient_requirements(
+    geometry_rows: list[dict[str, float | int]],
+) -> list[dict[str, float | int]]:
+    if not geometry_rows:
+        raise ValueError("Cannot build phase-gradient requirements without geometry rows")
+
+    K = int(geometry_rows[0]["K"])
+    validate_apcd_metagrating_geometry_rows(geometry_rows, K)
+    dimer_rows = _dimer_center_rows(geometry_rows, K)
+    phase_step_rad = 2 * math.pi / K
+
+    rows: list[dict[str, float | int]] = []
+    for dimer in dimer_rows:
+        dimer_index = int(dimer["dimer_index"])
+        plus_phase = _wrap_phase_rad(phase_step_rad * dimer_index)
+        minus_phase = _wrap_phase_rad(-phase_step_rad * dimer_index)
+        rows.append(
+            {
+                "K": K,
+                "dimer_index": dimer_index,
+                "x_nm": float(dimer["x_nm"]),
+                "dimer_pitch_nm": float(dimer["dimer_pitch_nm"]),
+                "supercell_period_nm": float(dimer["supercell_period_nm"]),
+                "target_angle_deg": float(dimer["target_angle_deg"]),
+                "uniform_phase_rad": 0.0,
+                "plus_ramp_phase_rad": plus_phase,
+                "plus_ramp_phase_deg": math.degrees(plus_phase),
+                "minus_ramp_phase_rad": minus_phase,
+                "minus_ramp_phase_deg": math.degrees(minus_phase),
+                "plus_ramp_complex_real": math.cos(plus_phase),
+                "plus_ramp_complex_imag": math.sin(plus_phase),
+                "minus_ramp_complex_real": math.cos(minus_phase),
+                "minus_ramp_complex_imag": math.sin(minus_phase),
+            }
+        )
+    return rows
+
+
+def normalized_structure_factor(phases_rad: Iterable[float], order_m: int) -> complex:
+    phases = list(phases_rad)
+    if not phases:
+        raise ValueError("phases_rad must not be empty")
+    K = len(phases)
+    total = 0j
+    for index, phase in enumerate(phases):
+        target_channel_amplitude = complex(math.cos(phase), math.sin(phase))
+        grating_phase = complex(
+            math.cos(-2 * math.pi * order_m * index / K),
+            math.sin(-2 * math.pi * order_m * index / K),
+        )
+        total += target_channel_amplitude * grating_phase
+    return total / K
+
+
+def write_phase_gradient_requirements_csv(rows: Iterable[dict[str, object]], path: Path) -> Path:
+    rows = list(rows)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=APCD_PHASE_GRADIENT_FIELDS)
+        writer.writeheader()
+        writer.writerows(rows)
+    return path
+
+
+def write_phase_gradient_sanity_check(
+    rows: list[dict[str, float | int]],
+    path: Path,
+) -> Path:
+    if not rows:
+        raise ValueError("Cannot write phase-gradient sanity check without rows")
+
+    K = int(rows[0]["K"])
+    phase_step_deg = 360.0 / K
+    uniform_phases = [float(row["uniform_phase_rad"]) for row in rows]
+    plus_phases = [float(row["plus_ramp_phase_rad"]) for row in rows]
+    minus_phases = [float(row["minus_ramp_phase_rad"]) for row in rows]
+    uniform_plus = abs(normalized_structure_factor(uniform_phases, order_m=1))
+    uniform_minus = abs(normalized_structure_factor(uniform_phases, order_m=-1))
+    plus_to_plus = abs(normalized_structure_factor(plus_phases, order_m=1))
+    plus_to_minus = abs(normalized_structure_factor(plus_phases, order_m=-1))
+    minus_to_plus = abs(normalized_structure_factor(minus_phases, order_m=1))
+    minus_to_minus = abs(normalized_structure_factor(minus_phases, order_m=-1))
+
+    phase_lines = [
+        (
+            f"| {int(row['dimer_index'])} | {float(row['x_nm'])} | "
+            f"{float(row['plus_ramp_phase_deg'])} | {float(row['minus_ramp_phase_deg'])} |"
+        )
+        for row in rows
+    ]
+
+    lines = [
+        f"# APCD K={K} Dimer Phase-Gradient Sanity Check",
+        "",
+        "## Current State",
+        "",
+        "- Current K-dimer setup is a geometry scaffold.",
+        "- Each dimer is already represented as a structure group.",
+        "- Current geometry does not imply a t_{alpha*<-alpha} phase-gradient.",
+        "- No FDTD, RCWA, far-field, or diffraction-order result is reported here.",
+        "",
+        "## APCD Target Channel",
+        "",
+        "The metagrating target channel is `t_{alpha*<-alpha}`, not ordinary x/y, L/R, or total transmission alone.",
+        "",
+        "A useful dimer state must simultaneously provide:",
+        "",
+        "- high `|t_{alpha*<-alpha}|`",
+        "- low beta leakage",
+        "- prescribed target-channel phase `phi_i`",
+        "",
+        "## Structure-Factor Sanity Check",
+        "",
+        "Using the approximate discrete structure factor",
+        "",
+        "```text",
+        "A_m = sum_i a_i * exp(-i 2*pi*m*i/K)",
+        "```",
+        "",
+        "uniform identical dimers have `a_i = 1`. For `m = +1` and `m = -1`, the normalized structure factor should be near zero when K > 1. Therefore, the current uniform scaffold alone should not be claimed as a +15 deg directional metagrating.",
+        "",
+        f"- uniform_A_plus1_normalized_abs: {uniform_plus}",
+        f"- uniform_A_minus1_normalized_abs: {uniform_minus}",
+        f"- plus_ramp_A_plus1_normalized_abs: {plus_to_plus}",
+        f"- plus_ramp_A_minus1_normalized_abs: {plus_to_minus}",
+        f"- minus_ramp_A_plus1_normalized_abs: {minus_to_plus}",
+        f"- minus_ramp_A_minus1_normalized_abs: {minus_to_minus}",
+        "",
+        "## Required Phase Ramp",
+        "",
+        f"- K: {K}",
+        f"- phase_step_deg: {phase_step_deg}",
+        "",
+        "| dimer_index | x_nm | plus_ramp_phase_deg | minus_ramp_phase_deg |",
+        "|---:|---:|---:|---:|",
+        *phase_lines,
+        "",
+        "## Sign Convention Caveat",
+        "",
+        "Both plus-ramp and minus-ramp targets are listed because the sign corresponding to the GUI/FDTD +15 deg order must be verified by later diffraction-order extraction. This report does not assert which ramp sign is final.",
+        "",
+        "## Recommended Route",
+        "",
+        "Step B: build diffraction-order / far-field extraction and verify the order sign convention.",
+        "",
+        "Step C: build a dimer phase-state design mechanism, for example dynamic phase through small geometry variants, detour phase / local displacement, or possibly constrained dimer rotation only if the alpha/beta target remains valid.",
+        "",
+        "Global rotation may change the APCD allowed state alpha and should not be used casually as a phase knob.",
+        "",
+        "Step D: find K dimer variants that simultaneously satisfy alpha-pass, beta-suppressed, and the target-channel phase ramp.",
+        "",
+        "## Explicit Non-Goals",
+        "",
+        "- Do not treat the current uniform scaffold as the final metagrating.",
+        "- Do not claim +15 deg steering is already achieved.",
+        "- Do not start a large sweep from this report.",
+        "- Do not switch to TiO2 or 450 nm.",
+        "- Do not do ML.",
+        "- Do not treat K as the number of individual nanopillars.",
+    ]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return path
+
+
+def write_phase_gradient_outputs(
+    geometry_csv: Path,
+    requirements_csv: Path,
+    sanity_check_md: Path,
+) -> tuple[Path, Path, list[dict[str, float | int]]]:
+    geometry_rows = read_apcd_metagrating_geometry_csv(geometry_csv)
+    rows = build_phase_gradient_requirements(geometry_rows)
+    csv_path = write_phase_gradient_requirements_csv(rows, requirements_csv)
+    md_path = write_phase_gradient_sanity_check(rows, sanity_check_md)
+    return csv_path, md_path, rows
+
+
+def _wrap_phase_rad(phase_rad: float) -> float:
+    return phase_rad % (2 * math.pi)
+
+
+def _dimer_center_rows(
+    geometry_rows: list[dict[str, float | int]],
+    K: int,
+) -> list[dict[str, float | int]]:
+    dimer_rows: list[dict[str, float | int]] = []
+    for dimer_index in range(K):
+        rows = [row for row in geometry_rows if int(row["dimer_index"]) == dimer_index]
+        if len(rows) != 2:
+            raise ValueError(f"dimer_index={dimer_index} must contain exactly 2 nanopillars")
+        first = rows[0]
+        dimer_rows.append(
+            {
+                "dimer_index": dimer_index,
+                "x_nm": sum(float(row["x_nm"]) for row in rows) / len(rows),
+                "dimer_pitch_nm": float(first["dimer_pitch_nm"]),
+                "supercell_period_nm": float(first["supercell_period_nm"]),
+                "target_angle_deg": float(first["target_angle_deg"]),
+            }
+        )
+    return dimer_rows
 
 
 def calculate_supercell_period_nm(wavelength_nm: float, target_angle_deg: float) -> float:
