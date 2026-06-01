@@ -84,8 +84,10 @@ def test_summary_csv_columns_are_complete(tmp_path: Path) -> None:
         loaded = list(reader)
 
     assert reader.fieldnames == module.SUMMARY_FIELDS
-    assert len(loaded) == 6
+    assert len(loaded) == 7
     assert loaded[0]["variant_id"] == "p1L_m10"
+    assert loaded[-2]["variant_id"] == "p1W_m5"
+    assert loaded[-1]["variant_id"] == "p1W_p5"
 
 
 def test_report_and_csv_writer_outputs_files(tmp_path: Path) -> None:
@@ -93,12 +95,28 @@ def test_report_and_csv_writer_outputs_files(tmp_path: Path) -> None:
     results_root = tmp_path / "results"
     _write_result(results_root / "baseline" / "results.csv", "baseline", "-0.35675399032712+0.9142415295978351j")
     rows = module.build_subset_summary_rows(results_root)
-    report = module.write_trend_report(rows, tmp_path / "report.md")
+    report = module.write_length_width_trend_report(rows, tmp_path / "report.md")
 
     text = report.read_text(encoding="utf-8")
     assert "No new FDTD run was performed" in text
     assert "not proof of `+15 deg` steering" in text
+    assert "P1 Width Trend" in text
     assert "Do not launch all 13 candidates as a batch" in text
+
+
+def test_p1_width_rows_enter_summary_and_phase_shift_is_correct(tmp_path: Path) -> None:
+    module = _load_script_module()
+    results_root = tmp_path / "results"
+    _write_result(results_root / "p1W_m5" / "results.csv", "p1W_m5", "-0.2561991699338597+0.9353368486510016j")
+    _write_result(results_root / "p1W_p5" / "results.csv", "p1W_p5", "-0.4576269847268101+0.8578247085066996j")
+
+    rows = module.build_subset_summary_rows(results_root)
+    p1w_m5 = next(row for row in rows if row["variant_id"] == "p1W_m5")
+    p1w_p5 = next(row for row in rows if row["variant_id"] == "p1W_p5")
+
+    assert p1w_m5["changed_parameter"] == "pillar_1_width_nm"
+    assert abs(p1w_m5["phase_shift_vs_baseline_deg"] - (-5.998417282378824)) < 1e-12
+    assert abs(p1w_p5["phase_shift_vs_baseline_deg"] - 6.762100361623993) < 1e-12
 
 
 def test_script_does_not_call_lumapi_or_fdtd_run() -> None:

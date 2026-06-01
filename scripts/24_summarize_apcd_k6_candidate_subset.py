@@ -29,13 +29,23 @@ SUMMARY_FIELDS = [
     "notes",
 ]
 
-DEFAULT_VARIANTS = [
+P1_LENGTH_VARIANTS = [
     ("p1L_m10", "pillar_1_length_nm", -10.0),
     ("p1L_m5", "pillar_1_length_nm", -5.0),
     ("baseline", "none", 0.0),
     ("p1L_p5", "pillar_1_length_nm", 5.0),
     ("p1L_p10", "pillar_1_length_nm", 10.0),
     ("p2W_m5", "pillar_2_width_nm", -5.0),
+]
+
+P1_LENGTH_WIDTH_VARIANTS = [
+    ("p1L_m10", "pillar_1_length_nm", -10.0),
+    ("p1L_m5", "pillar_1_length_nm", -5.0),
+    ("baseline", "none", 0.0),
+    ("p1L_p5", "pillar_1_length_nm", 5.0),
+    ("p1L_p10", "pillar_1_length_nm", 10.0),
+    ("p1W_m5", "pillar_1_width_nm", -5.0),
+    ("p1W_p5", "pillar_1_width_nm", 5.0),
 ]
 
 
@@ -48,12 +58,12 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--output-csv",
-        default="outputs/apcd_k6_metagrating_633nm/phase_state_candidates/p1_length_trend_summary.csv",
+        default="outputs/apcd_k6_metagrating_633nm/phase_state_candidates/p1_length_width_trend_summary.csv",
         help="Output summary CSV path.",
     )
     parser.add_argument(
         "--report",
-        default="reports/apcd_k6_p1_length_candidate_trend_note.md",
+        default="reports/apcd_k6_p1_length_width_candidate_trend_note.md",
         help="Output report path.",
     )
     return parser.parse_args()
@@ -118,7 +128,11 @@ def summarize_variant(
     }
 
 
-def build_subset_summary_rows(results_root: Path) -> list[dict[str, object]]:
+def build_subset_summary_rows(
+    results_root: Path,
+    variants: list[tuple[str, str, float]] | None = None,
+) -> list[dict[str, object]]:
+    variants = P1_LENGTH_WIDTH_VARIANTS if variants is None else variants
     return [
         summarize_variant(
             variant_id=variant_id,
@@ -126,7 +140,7 @@ def build_subset_summary_rows(results_root: Path) -> list[dict[str, object]]:
             delta_nm=delta_nm,
             results_root=results_root,
         )
-        for variant_id, changed_parameter, delta_nm in DEFAULT_VARIANTS
+        for variant_id, changed_parameter, delta_nm in variants
     ]
 
 
@@ -201,6 +215,77 @@ def write_trend_report(rows: list[dict[str, object]], report_path: Path) -> Path
     return report_path
 
 
+def write_length_width_trend_report(rows: list[dict[str, object]], report_path: Path) -> Path:
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    p1_length_rows = [row for row in rows if row["changed_parameter"] in {"pillar_1_length_nm", "none"}]
+    p1_width_rows = [row for row in rows if row["changed_parameter"] == "pillar_1_width_nm"]
+    early_pass = [row["variant_id"] for row in rows if row["overall_early_pass"] is True]
+    missing = [row["variant_id"] for row in rows if str(row["notes"]).startswith("missing")]
+    lines = [
+        "# APCD K=6 P1 Length + Width Candidate Trend Note",
+        "",
+        "## Scope",
+        "",
+        "This report only summarizes existing small-subset real-run results. No new FDTD run was performed by this summary step.",
+        "",
+        "It is not a K=7 run, not a phase-ramp supercell, not a TiO2/450 nm result, not ML, and not proof of `+15 deg` steering.",
+        "",
+        "## Inputs",
+        "",
+        "The summary reads existing `results.csv` files for:",
+        "",
+        "- baseline",
+        "- p1L_m10",
+        "- p1L_m5",
+        "- p1L_p5",
+        "- p1L_p10",
+        "- p1W_m5",
+        "- p1W_p5",
+        "",
+        f"Missing inputs: {', '.join(str(item) for item in missing) if missing else 'none'}",
+        "",
+        "## P1 Length Trend",
+        "",
+        "| variant_id | delta_nm | target_conversion | opposite_spin_leakage | ratio | PD | phase_shift_vs_baseline_deg | early pass |",
+        "|---|---:|---:|---:|---:|---:|---:|---|",
+    ]
+    for row in p1_length_rows:
+        lines.append(_trend_table_row(row))
+    lines.extend(
+        [
+            "",
+            "## P1 Width Trend",
+            "",
+            "| variant_id | delta_nm | target_conversion | opposite_spin_leakage | ratio | PD | phase_shift_vs_baseline_deg | early pass |",
+            "|---|---:|---:|---:|---:|---:|---:|---|",
+        ]
+    )
+    for row in p1_width_rows:
+        lines.append(_trend_table_row(row))
+    lines.extend(
+        [
+            "",
+            "## Interpretation",
+            "",
+            "- The pillar-1 length and pillar-1 width perturbations both provide small intrinsic phase tuning.",
+            "- `p1W_m5` and `p1W_p5` both pass the current early thresholds.",
+            "- `p1W_m5` has very low leakage and is worth retaining.",
+            "- `p1W_p5` still passes, but leakage rises relative to baseline and should be treated cautiously.",
+            "- The `p1W` +/-5 nm phase shifts are about +/-6 deg, slightly stronger than the `p1L` +/-5 nm shifts.",
+            "- The current pillar-1 perturbations are still far from a `60 deg` K=6 phase-state spacing, so they are not enough to form a six-state phase library.",
+            "- This is not proof of `+15 deg` steering.",
+            "",
+            f"Candidates passing all current early thresholds: {', '.join(str(item) for item in early_pass) if early_pass else 'none'}",
+            "",
+            "## Next Step",
+            "",
+            "Next, test only a few pillar-2 width perturbations such as `p2W_m10/p2W_p10`. Do not launch all 13 candidates as a batch.",
+        ]
+    )
+    report_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return report_path
+
+
 def main() -> int:
     args = parse_args()
     results_root = _resolve_path(args.results_root)
@@ -208,7 +293,7 @@ def main() -> int:
     report_path = _resolve_path(args.report)
     rows = build_subset_summary_rows(results_root)
     write_summary_csv(rows, output_csv)
-    write_trend_report(rows, report_path)
+    write_length_width_trend_report(rows, report_path)
     print(f"rows={len(rows)}")
     print(f"output_csv={output_csv}")
     print(f"report={report_path}")
@@ -245,6 +330,13 @@ def _missing_row(
 
 def _float(value: str) -> float:
     return float(value)
+
+
+def _trend_table_row(row: dict[str, object]) -> str:
+    return (
+        "| {variant_id} | {delta_nm} | {target_conversion} | {opposite_spin_leakage} | "
+        "{conversion_to_leakage_ratio} | {PD} | {phase_shift_vs_baseline_deg} | {overall_early_pass} |"
+    ).format(**row)
 
 
 def _resolve_path(path: str) -> Path:
