@@ -1,0 +1,7 @@
+K,phase_bin_index,phase_target_deg,convention,notes
+6,0,0.0,"[-180,180)",K means dimer count; K=6 uses 60 deg target-channel phase bins.
+6,1,60.0,"[-180,180)",K means dimer count; K=6 uses 60 deg target-channel phase bins.
+6,2,120.0,"[-180,180)",K means dimer count; K=6 uses 60 deg target-channel phase bins.
+6,3,-180.0,"[-180,180)",K means dimer count; K=6 uses 60 deg target-channel phase bins.
+6,4,-120.0,"[-180,180)",K means dimer count; K=6 uses 60 deg target-channel phase bins.
+6,5,-60.0,"[-180,180)",K means dimer count; K=6 uses 60 deg target-channel phase bins.

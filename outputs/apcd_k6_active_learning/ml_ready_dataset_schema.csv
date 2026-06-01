@@ -1,0 +1,32 @@
+column_name,column_role,dtype,required,notes
+variant_id,input_parameter,string,yes,Stable candidate identifier; one row per evaluated dimer state.
+candidate_family,input_parameter,string,yes,"Examples: baseline, multi_parameter_candidate, active_learning_round_n."
+p1_length_nm,input_parameter,float,yes,Candidate geometry or material descriptor.
+p1_width_nm,input_parameter,float,yes,Candidate geometry or material descriptor.
+p2_length_nm,input_parameter,float,yes,Candidate geometry or material descriptor.
+p2_width_nm,input_parameter,float,yes,Candidate geometry or material descriptor.
+p1_frac_x,input_parameter,float,yes,Candidate geometry or material descriptor.
+p1_frac_y,input_parameter,float,yes,Candidate geometry or material descriptor.
+p2_frac_x,input_parameter,float,yes,Candidate geometry or material descriptor.
+p2_frac_y,input_parameter,float,yes,Candidate geometry or material descriptor.
+internal_dx_nm,input_parameter,float,yes,Candidate geometry or material descriptor.
+internal_dy_nm,input_parameter,float,yes,Candidate geometry or material descriptor.
+p1_rotation_deg,input_parameter,float,yes,Fixed to 67.5 deg in the first search stage.
+p2_rotation_deg,input_parameter,float,yes,Fixed to 112.5 deg in the first search stage.
+period_x_nm,input_parameter,float,yes,Candidate geometry or material descriptor.
+period_y_nm,input_parameter,float,yes,Candidate geometry or material descriptor.
+height_nm,input_parameter,float,yes,Candidate geometry or material descriptor.
+material,input_parameter,string,yes,Candidate geometry or material descriptor.
+substrate,input_parameter,string,yes,Candidate geometry or material descriptor.
+t_alpha_star_from_alpha_real,output_label,float,yes,Preferred surrogate target; avoids phase wrap ambiguity.
+t_alpha_star_from_alpha_imag,output_label,float,yes,Preferred surrogate target; combines with real part for phase.
+t_alpha_star_from_alpha_abs,output_label,float,yes,Real FDTD-derived label; leave blank until evaluated.
+phase_deg,output_label,float,yes,Derived wrapped phase; useful for binning but not the only supervision target.
+phase_shift_vs_baseline_deg,output_label,float,yes,Wrapped target-channel shift relative to the validated baseline.
+target_conversion,output_label,float,yes,Higher is better for alpha -> alpha* target channel.
+opposite_spin_leakage,output_label,float,yes,Lower is better; captures leakage into the opposite spin channel.
+conversion_to_leakage_ratio,output_label,float,yes,Higher is better; use an epsilon guard when computed.
+PD,output_label,float,yes,Polarization discrimination metric from the existing APCD analysis convention.
+overall_early_pass,output_label,boolean_or_blank,yes,"Engineering pass/fail label, not a final paper metric."
+source_result_csv,metadata,string,recommended,Path to the real FDTD result CSV when available.
+notes,metadata,string,recommended,"Must state dry-run, missing data, or result provenance explicitly."

@@ -1,0 +1,18 @@
+parameter_name,baseline_value,min_value,max_value,step_or_sampling,search_stage,notes
+p1_length_nm,130.0,110.0,150.0,lhs_or_grid_5_nm,stage1_search,Primary multi-parameter geometry search variable.
+p1_width_nm,70.0,55.0,90.0,lhs_or_grid_5_nm,stage1_search,Primary multi-parameter geometry search variable.
+p2_length_nm,85.0,70.0,105.0,lhs_or_grid_5_nm,stage1_search,Primary multi-parameter geometry search variable.
+p2_width_nm,150.0,130.0,170.0,lhs_or_grid_5_nm,stage1_search,Primary multi-parameter geometry search variable.
+p1_frac_x,0.75,0.65,0.85,optional_lhs_0.02,stage2_optional,Fractional position; keep near alpha-pass layout initially.
+p1_frac_y,0.75,0.65,0.85,optional_lhs_0.02,stage2_optional,Fractional position; keep near alpha-pass layout initially.
+p2_frac_x,0.25,0.15,0.35,optional_lhs_0.02,stage2_optional,Fractional position; keep near alpha-pass layout initially.
+p2_frac_y,0.25,0.15,0.35,optional_lhs_0.02,stage2_optional,Fractional position; keep near alpha-pass layout initially.
+internal_dx_nm,0.0,-40.0,40.0,lhs_or_grid_10_nm,stage1_search,Relative in-plane dimer offset candidate variable.
+internal_dy_nm,0.0,-40.0,40.0,lhs_or_grid_10_nm,stage1_search,Relative in-plane dimer offset candidate variable.
+p1_rotation_deg,67.5,67.5,67.5,fixed,fixed_stage1,Do not search initially; changing it may alter alpha/beta allowed state.
+p2_rotation_deg,112.5,112.5,112.5,fixed,fixed_stage1,Do not search initially; changing it may alter alpha/beta allowed state.
+period_x_nm,340.0,340.0,340.0,fixed,fixed_stage1,Keep baseline single-dimer period for the first active-learning scaffold.
+period_y_nm,340.0,340.0,340.0,fixed,fixed_stage1,Keep baseline single-dimer period for the first active-learning scaffold.
+height_nm,300.0,300.0,300.0,fixed,fixed_stage1,Do not reopen height in this stage.
+material,c-Si,c-Si,c-Si,fixed,fixed_stage1,Do not switch material in 09-P0.
+substrate,Al2O3,Al2O3,Al2O3,fixed,fixed_stage1,Keep the validated substrate convention.
