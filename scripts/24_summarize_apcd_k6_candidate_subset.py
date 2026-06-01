@@ -47,6 +47,22 @@ P2_WIDTH_SUMMARY_FIELDS = [
     "notes",
 ]
 
+COMBINED_SUMMARY_FIELDS = [
+    "variant_id",
+    "changed_parameter",
+    "delta_nm",
+    "target_conversion",
+    "opposite_spin_leakage",
+    "conversion_to_leakage_ratio",
+    "PD",
+    "total_transmission",
+    "phase_deg",
+    "phase_shift_vs_baseline_deg",
+    "overall_early_pass",
+    "priority",
+    "notes",
+]
+
 P1_LENGTH_VARIANTS = [
     ("p1L_m10", "pillar_1_length_nm", -10.0),
     ("p1L_m5", "pillar_1_length_nm", -5.0),
@@ -73,12 +89,38 @@ P2_WIDTH_VARIANTS = [
     ("p2W_p10", "pillar_2_width_nm", 10.0),
 ]
 
+PRIORITY_BY_VARIANT = {
+    "baseline": "keep_high_priority",
+    "p1W_m5": "keep_high_priority",
+    "p2W_p10": "keep_high_priority",
+    "p1L_m10": "keep_candidate",
+    "p1L_m5": "keep_candidate",
+    "p1L_p5": "keep_candidate",
+    "p1W_p5": "keep_candidate",
+    "p2W_m5": "keep_candidate",
+    "p1L_p10": "record_not_priority",
+    "p2W_m10": "record_not_priority",
+}
+
+COMBINED_VARIANT_ORDER = [
+    "p1L_m10",
+    "p1L_m5",
+    "baseline",
+    "p1L_p5",
+    "p1L_p10",
+    "p1W_m5",
+    "p1W_p5",
+    "p2W_m10",
+    "p2W_m5",
+    "p2W_p10",
+]
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Summarize existing APCD K=6 candidate subset results.")
     parser.add_argument(
         "--subset",
-        choices=("p1-length-width", "p2-width"),
+        choices=("p1-length-width", "p2-width", "combined-decision"),
         default="p1-length-width",
         help="Candidate subset to summarize.",
     )
@@ -96,6 +138,16 @@ def parse_args() -> argparse.Namespace:
         "--report",
         default=None,
         help="Output report path.",
+    )
+    parser.add_argument(
+        "--p1-summary",
+        default="outputs/apcd_k6_metagrating_633nm/phase_state_candidates/p1_length_width_trend_summary.csv",
+        help="Existing p1 length/width summary CSV used by combined-decision mode.",
+    )
+    parser.add_argument(
+        "--p2-summary",
+        default="outputs/apcd_k6_metagrating_633nm/phase_state_candidates/p2_width_trend_summary.csv",
+        help="Existing p2 width summary CSV used by combined-decision mode.",
     )
     return parser.parse_args()
 
@@ -380,10 +432,126 @@ def write_p2_width_trend_report(rows: list[dict[str, object]], report_path: Path
     return report_path
 
 
+def build_combined_summary_rows(p1_summary_csv: Path, p2_summary_csv: Path) -> list[dict[str, object]]:
+    combined_by_variant: dict[str, dict[str, object]] = {}
+    for row in read_summary_csv(p1_summary_csv) + read_summary_csv(p2_summary_csv):
+        variant_id = str(row["variant_id"])
+        if variant_id in combined_by_variant:
+            continue
+        priority = PRIORITY_BY_VARIANT.get(variant_id, "review_later")
+        combined_by_variant[variant_id] = {
+            "variant_id": variant_id,
+            "changed_parameter": row["changed_parameter"],
+            "delta_nm": row["delta_nm"],
+            "target_conversion": row["target_conversion"],
+            "opposite_spin_leakage": row["opposite_spin_leakage"],
+            "conversion_to_leakage_ratio": row["conversion_to_leakage_ratio"],
+            "PD": row["PD"],
+            "total_transmission": row["total_transmission"],
+            "phase_deg": row["phase_deg"],
+            "phase_shift_vs_baseline_deg": row["phase_shift_vs_baseline_deg"],
+            "overall_early_pass": row["overall_early_pass"],
+            "priority": priority,
+            "notes": f"{row['notes']}; 08-P9 combined decision priority={priority}",
+        }
+    return [combined_by_variant[variant_id] for variant_id in COMBINED_VARIANT_ORDER if variant_id in combined_by_variant]
+
+
+def phase_coverage_summary(rows: list[dict[str, object]]) -> dict[str, float]:
+    passing_shifts = [
+        abs(float(row["phase_shift_vs_baseline_deg"]))
+        for row in rows
+        if str(row["overall_early_pass"]) == "True"
+    ]
+    all_shifts = [abs(float(row["phase_shift_vs_baseline_deg"])) for row in rows]
+    return {
+        "max_passing_abs_shift_deg": max(passing_shifts) if passing_shifts else 0.0,
+        "max_observed_abs_shift_deg": max(all_shifts) if all_shifts else 0.0,
+        "required_k6_step_deg": 60.0,
+    }
+
+
+def write_phase_knob_decision_report(rows: list[dict[str, object]], report_path: Path) -> Path:
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    coverage = phase_coverage_summary(rows)
+    high_priority = [row["variant_id"] for row in rows if row["priority"] == "keep_high_priority"]
+    keep_candidate = [row["variant_id"] for row in rows if row["priority"] == "keep_candidate"]
+    not_priority = [row["variant_id"] for row in rows if row["priority"] == "record_not_priority"]
+    lines = [
+        "# APCD K=6 Phase-Knob Redesign Decision",
+        "",
+        "## Scope",
+        "",
+        "This is the 08-P9 closure note. It only combines existing `p1L`, `p1W`, and `p2W` small-subset summaries. No FDTD run was performed by this step.",
+        "",
+        "This is not a K=7 run, not a phase-ramp supercell, not a TiO2/450 nm result, not ML training, and not a steering result.",
+        "",
+        "## Current 08 Small-Subset Result",
+        "",
+        "| variant_id | changed_parameter | delta_nm | target_conversion | opposite_spin_leakage | ratio | phase_shift_vs_baseline_deg | early pass | priority |",
+        "|---|---|---:|---:|---:|---:|---:|---|---|",
+    ]
+    for row in rows:
+        lines.append(
+            "| {variant_id} | {changed_parameter} | {delta_nm} | {target_conversion} | "
+            "{opposite_spin_leakage} | {conversion_to_leakage_ratio} | "
+            "{phase_shift_vs_baseline_deg} | {overall_early_pass} | {priority} |".format(**row)
+        )
+    lines.extend(
+        [
+            "",
+            "## Phase Coverage Decision",
+            "",
+            "- K=6 needs adjacent dimer target-channel phase spacing of `60 deg` for the intended six-state library.",
+            f"- The largest early-passing absolute phase shift in the current one-factor subset is about `{coverage['max_passing_abs_shift_deg']:.2f} deg`.",
+            f"- The largest observed absolute phase shift is about `{coverage['max_observed_abs_shift_deg']:.2f} deg`, but that point fails leakage/ratio.",
+            "- Therefore, one-factor perturbations are insufficient to form a `0/60/120/180/240/300 deg` phase-state library.",
+            "- The current results are not a `+15 deg` steering proof.",
+            "- Blindly running the remaining one-factor candidates is not recommended.",
+            "",
+            "## Priority",
+            "",
+            f"- keep_high_priority: {', '.join(str(item) for item in high_priority)}",
+            f"- keep_candidate: {', '.join(str(item) for item in keep_candidate)}",
+            f"- record_not_priority: {', '.join(str(item) for item in not_priority)}",
+            "",
+            "## 08 Closure",
+            "",
+            "08 can close as a negative-but-useful phase-knob diagnostic: the alpha-pass baseline and several one-factor variants remain strong, but the phase span is far short of the K=6 requirement.",
+            "",
+            "## Next Stage: 09 Small-Data Active Learning Surrogate",
+            "",
+            "09 should not start by training a large model. It should first:",
+            "",
+            "1. Define an ML-ready dataset schema.",
+            "2. Define a multi-parameter candidate space.",
+            "3. Design about 20-30 DOE combined-geometry candidates.",
+            "4. Use a small-data surrogate / active learning loop only after the schema and DOE set are locked.",
+            "",
+            "If the single-dimer phase-state library still fails after combined geometry and hybrid knobs, the project should pivot to direct K=6 supercell optimization.",
+        ]
+    )
+    report_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return report_path
+
+
+def read_summary_csv(path: Path) -> list[dict[str, str]]:
+    with path.open("r", newline="", encoding="utf-8") as handle:
+        return list(csv.DictReader(handle))
+
+
 def main() -> int:
     args = parse_args()
     results_root = _resolve_path(args.results_root)
-    if args.subset == "p2-width":
+    if args.subset == "combined-decision":
+        default_csv = "outputs/apcd_k6_metagrating_633nm/phase_state_candidates/combined_small_subset_trend_summary.csv"
+        default_report = "reports/apcd_k6_phase_knob_redesign_decision.md"
+        rows = build_combined_summary_rows(_resolve_path(args.p1_summary), _resolve_path(args.p2_summary))
+        output_csv = _resolve_path(args.output_csv or default_csv)
+        report_path = _resolve_path(args.report or default_report)
+        write_summary_csv(rows, output_csv, COMBINED_SUMMARY_FIELDS)
+        write_phase_knob_decision_report(rows, report_path)
+    elif args.subset == "p2-width":
         default_csv = "outputs/apcd_k6_metagrating_633nm/phase_state_candidates/p2_width_trend_summary.csv"
         default_report = "reports/apcd_k6_p2_width_candidate_trend_note.md"
         rows = build_subset_summary_rows(results_root, P2_WIDTH_VARIANTS)

@@ -169,9 +169,93 @@ def test_p2_width_csv_columns_are_complete(tmp_path: Path) -> None:
     assert loaded[-1]["variant_id"] == "p2W_p10"
 
 
+def test_combined_summary_priority_and_phase_coverage(tmp_path: Path) -> None:
+    module = _load_script_module()
+    p1_csv = tmp_path / "p1.csv"
+    p2_csv = tmp_path / "p2.csv"
+    p1_rows = [
+        _summary_row("p1L_m10", "pillar_1_length_nm", "-10.0", "-7.340966210077795", "True"),
+        _summary_row("baseline", "none", "0.0", "0.0", "True"),
+        _summary_row("p1L_p10", "pillar_1_length_nm", "10.0", "12.813406094096479", "False"),
+        _summary_row("p1W_m5", "pillar_1_width_nm", "-5.0", "-5.998417282378824", "True"),
+    ]
+    p2_rows = [
+        _summary_row("p2W_m10", "pillar_2_width_nm", "-10.0", "-3.746100720439358", "False"),
+        _summary_row("baseline", "none", "0.0", "0.0", "True"),
+        _summary_row("p2W_p10", "pillar_2_width_nm", "10.0", "4.201026446414716", "True"),
+    ]
+    module.write_summary_csv(p1_rows, p1_csv)
+    module.write_summary_csv(p2_rows, p2_csv, module.P2_WIDTH_SUMMARY_FIELDS)
+
+    rows = module.build_combined_summary_rows(p1_csv, p2_csv)
+    by_variant = {row["variant_id"]: row for row in rows}
+    coverage = module.phase_coverage_summary(rows)
+
+    assert by_variant["baseline"]["priority"] == "keep_high_priority"
+    assert by_variant["p1W_m5"]["priority"] == "keep_high_priority"
+    assert by_variant["p2W_p10"]["priority"] == "keep_high_priority"
+    assert by_variant["p1L_m10"]["priority"] == "keep_candidate"
+    assert by_variant["p1L_p10"]["priority"] == "record_not_priority"
+    assert by_variant["p2W_m10"]["priority"] == "record_not_priority"
+    assert abs(coverage["max_passing_abs_shift_deg"] - 7.340966210077795) < 1e-12
+    assert abs(coverage["max_observed_abs_shift_deg"] - 12.813406094096479) < 1e-12
+    assert coverage["required_k6_step_deg"] == 60.0
+
+
+def test_combined_csv_columns_and_decision_report_keywords(tmp_path: Path) -> None:
+    module = _load_script_module()
+    rows = [
+        _summary_row("baseline", "none", "0.0", "0.0", "True") | {"priority": "keep_high_priority"},
+        _summary_row("p1L_p10", "pillar_1_length_nm", "10.0", "12.813406094096479", "False")
+        | {"priority": "record_not_priority"},
+    ]
+    output_csv = module.write_summary_csv(rows, tmp_path / "combined.csv", module.COMBINED_SUMMARY_FIELDS)
+    report = module.write_phase_knob_decision_report(rows, tmp_path / "decision.md")
+
+    with output_csv.open("r", newline="", encoding="utf-8") as handle:
+        reader = csv.DictReader(handle)
+        loaded = list(reader)
+    text = report.read_text(encoding="utf-8")
+
+    assert reader.fieldnames == module.COMBINED_SUMMARY_FIELDS
+    assert loaded[0]["variant_id"] == "baseline"
+    assert "not a steering result" in text
+    assert "No FDTD run was performed" in text
+    assert "insufficient to form" in text
+    assert "60 deg" in text
+    assert "09 Small-Data Active Learning Surrogate" in text
+
+
 def test_script_does_not_call_lumapi_or_fdtd_run() -> None:
     text = SCRIPT_PATH.read_text(encoding="utf-8")
 
     assert "lumapi" not in text
     assert "fdtd.run" not in text
     assert ".fsp" not in text
+
+
+def _summary_row(
+    variant_id: str,
+    changed_parameter: str,
+    delta_nm: str,
+    phase_shift: str,
+    overall_early_pass: str,
+) -> dict[str, str]:
+    return {
+        "variant_id": variant_id,
+        "changed_parameter": changed_parameter,
+        "delta_nm": delta_nm,
+        "target_conversion": "0.9",
+        "opposite_spin_leakage": "0.1",
+        "conversion_to_leakage_ratio": "9",
+        "PD": "0.8",
+        "total_transmission": "0.5",
+        "t_alpha_star_from_alpha": "-0.35675399032712+0.9142415295978351j",
+        "phase_deg": "111.31665091018952",
+        "phase_shift_vs_baseline_deg": phase_shift,
+        "early_target_pass": "True",
+        "early_leakage_pass": "True",
+        "early_ratio_pass": "True",
+        "overall_early_pass": overall_early_pass,
+        "notes": "existing real-run result summarized; not a new FDTD run",
+    }
