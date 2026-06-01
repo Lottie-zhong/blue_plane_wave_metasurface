@@ -119,6 +119,56 @@ def test_p1_width_rows_enter_summary_and_phase_shift_is_correct(tmp_path: Path) 
     assert abs(p1w_p5["phase_shift_vs_baseline_deg"] - 6.762100361623993) < 1e-12
 
 
+def test_p2_width_rows_enter_summary_and_pass_fail_is_correct(tmp_path: Path) -> None:
+    module = _load_script_module()
+    results_root = tmp_path / "results"
+    _write_result(results_root / "p2W_m10" / "results.csv", "p2W_m10", "-0.2894507253851519+0.9140942012990362j")
+    _write_result(results_root / "p2W_p10" / "results.csv", "p2W_p10", "-0.4242797726132951+0.8888152157390654j")
+
+    # Override the generic fixture values to match the observed early pass/fail split.
+    for variant, leakage, ratio in (("p2W_m10", "0.3489369566", "2.6728260123"), ("p2W_p10", "0.0135383278", "73.0736959297")):
+        path = results_root / variant / "results.csv"
+        with path.open("r", newline="", encoding="utf-8") as handle:
+            row = next(csv.DictReader(handle))
+        row["opposite_spin_leakage"] = leakage
+        row["conversion_to_leakage_ratio"] = ratio
+        with path.open("w", newline="", encoding="utf-8") as handle:
+            writer = csv.DictWriter(handle, fieldnames=row.keys())
+            writer.writeheader()
+            writer.writerow(row)
+
+    rows = module.build_subset_summary_rows(results_root, module.P2_WIDTH_VARIANTS)
+    p2w_m10 = next(row for row in rows if row["variant_id"] == "p2W_m10")
+    p2w_p10 = next(row for row in rows if row["variant_id"] == "p2W_p10")
+
+    assert p2w_m10["changed_parameter"] == "pillar_2_width_nm"
+    assert abs(p2w_m10["phase_shift_vs_baseline_deg"] - (-3.746100720439358)) < 1e-12
+    assert p2w_m10["early_target_pass"] is True
+    assert p2w_m10["early_leakage_pass"] is False
+    assert p2w_m10["early_ratio_pass"] is False
+    assert p2w_m10["overall_early_pass"] is False
+
+    assert abs(p2w_p10["phase_shift_vs_baseline_deg"] - 4.201026446414716) < 1e-12
+    assert p2w_p10["overall_early_pass"] is True
+
+
+def test_p2_width_csv_columns_are_complete(tmp_path: Path) -> None:
+    module = _load_script_module()
+    results_root = tmp_path / "results"
+    _write_result(results_root / "p2W_p10" / "results.csv", "p2W_p10", "-0.4242797726132951+0.8888152157390654j")
+    rows = module.build_subset_summary_rows(results_root, module.P2_WIDTH_VARIANTS)
+    output_csv = module.write_summary_csv(rows, tmp_path / "p2_width.csv", module.P2_WIDTH_SUMMARY_FIELDS)
+
+    with output_csv.open("r", newline="", encoding="utf-8") as handle:
+        reader = csv.DictReader(handle)
+        loaded = list(reader)
+
+    assert reader.fieldnames == module.P2_WIDTH_SUMMARY_FIELDS
+    assert len(loaded) == 4
+    assert loaded[0]["variant_id"] == "p2W_m10"
+    assert loaded[-1]["variant_id"] == "p2W_p10"
+
+
 def test_script_does_not_call_lumapi_or_fdtd_run() -> None:
     text = SCRIPT_PATH.read_text(encoding="utf-8")
 

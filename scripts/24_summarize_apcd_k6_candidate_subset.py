@@ -29,6 +29,24 @@ SUMMARY_FIELDS = [
     "notes",
 ]
 
+P2_WIDTH_SUMMARY_FIELDS = [
+    "variant_id",
+    "changed_parameter",
+    "delta_nm",
+    "target_conversion",
+    "opposite_spin_leakage",
+    "conversion_to_leakage_ratio",
+    "PD",
+    "total_transmission",
+    "phase_deg",
+    "phase_shift_vs_baseline_deg",
+    "early_target_pass",
+    "early_leakage_pass",
+    "early_ratio_pass",
+    "overall_early_pass",
+    "notes",
+]
+
 P1_LENGTH_VARIANTS = [
     ("p1L_m10", "pillar_1_length_nm", -10.0),
     ("p1L_m5", "pillar_1_length_nm", -5.0),
@@ -48,9 +66,22 @@ P1_LENGTH_WIDTH_VARIANTS = [
     ("p1W_p5", "pillar_1_width_nm", 5.0),
 ]
 
+P2_WIDTH_VARIANTS = [
+    ("p2W_m10", "pillar_2_width_nm", -10.0),
+    ("p2W_m5", "pillar_2_width_nm", -5.0),
+    ("baseline", "none", 0.0),
+    ("p2W_p10", "pillar_2_width_nm", 10.0),
+]
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Summarize existing APCD K=6 candidate subset results.")
+    parser.add_argument(
+        "--subset",
+        choices=("p1-length-width", "p2-width"),
+        default="p1-length-width",
+        help="Candidate subset to summarize.",
+    )
     parser.add_argument(
         "--results-root",
         default="outputs/apcd_k6_metagrating_633nm/phase_state_candidates",
@@ -58,12 +89,12 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--output-csv",
-        default="outputs/apcd_k6_metagrating_633nm/phase_state_candidates/p1_length_width_trend_summary.csv",
+        default=None,
         help="Output summary CSV path.",
     )
     parser.add_argument(
         "--report",
-        default="reports/apcd_k6_p1_length_width_candidate_trend_note.md",
+        default=None,
         help="Output report path.",
     )
     return parser.parse_args()
@@ -144,12 +175,17 @@ def build_subset_summary_rows(
     ]
 
 
-def write_summary_csv(rows: list[dict[str, object]], output_csv: Path) -> Path:
+def write_summary_csv(
+    rows: list[dict[str, object]],
+    output_csv: Path,
+    fields: list[str] | None = None,
+) -> Path:
+    fields = SUMMARY_FIELDS if fields is None else fields
     output_csv.parent.mkdir(parents=True, exist_ok=True)
     with output_csv.open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=SUMMARY_FIELDS)
+        writer = csv.DictWriter(handle, fieldnames=fields)
         writer.writeheader()
-        writer.writerows({field: row.get(field, "") for field in SUMMARY_FIELDS} for row in rows)
+        writer.writerows({field: row.get(field, "") for field in fields} for row in rows)
     return output_csv
 
 
@@ -286,14 +322,83 @@ def write_length_width_trend_report(rows: list[dict[str, object]], report_path: 
     return report_path
 
 
+def write_p2_width_trend_report(rows: list[dict[str, object]], report_path: Path) -> Path:
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    early_pass = [row["variant_id"] for row in rows if row["overall_early_pass"] is True]
+    missing = [row["variant_id"] for row in rows if str(row["notes"]).startswith("missing")]
+    lines = [
+        "# APCD K=6 P2 Width Candidate Trend Note",
+        "",
+        "## Scope",
+        "",
+        "This report only summarizes existing `p2W` small-subset real-run results. No new FDTD run was performed by this summary step.",
+        "",
+        "It is not a K=7 run, not a phase-ramp supercell, not a TiO2/450 nm result, not ML, and not proof of `+15 deg` steering.",
+        "",
+        "## Inputs",
+        "",
+        "The summary reads existing `results.csv` files for:",
+        "",
+        "- p2W_m10",
+        "- p2W_m5",
+        "- baseline",
+        "- p2W_p10",
+        "",
+        f"Missing inputs: {', '.join(str(item) for item in missing) if missing else 'none'}",
+        "",
+        "## P2 Width Trend",
+        "",
+        "| variant_id | delta_nm | target_conversion | opposite_spin_leakage | ratio | PD | total_transmission | phase_shift_vs_baseline_deg | early pass |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|---|",
+    ]
+    for row in rows:
+        lines.append(
+            "| {variant_id} | {delta_nm} | {target_conversion} | {opposite_spin_leakage} | "
+            "{conversion_to_leakage_ratio} | {PD} | {total_transmission} | "
+            "{phase_shift_vs_baseline_deg} | {overall_early_pass} |".format(**row)
+        )
+    lines.extend(
+        [
+            "",
+            "## Interpretation",
+            "",
+            "- This report only organizes the existing `p2W_m10 / p2W_m5 / baseline / p2W_p10` subset; it does not add any new simulation.",
+            "- `p2W_m10` has clearly excessive leakage and fails the current early leakage and ratio thresholds, so it should not enter the priority pool.",
+            "- `p2W_p10` keeps excellent alpha-pass behavior and is worth retaining.",
+            "- Within this small subset, increasing pillar-2 width in the positive direction appears to reduce leakage and improve the target-to-leakage ratio.",
+            "- The phase shifts are still only a few degrees, far below a `60 deg` K=6 phase-state spacing.",
+            "- This is not proof of `+15 deg` steering.",
+            "",
+            f"Candidates passing all current early thresholds: {', '.join(str(item) for item in early_pass) if early_pass else 'none'}",
+            "",
+            "## Next Step",
+            "",
+            "Next, merge the existing `p1L`, `p1W`, and `p2W` small subsets into one comparison table. Then decide whether testing `p2L` is still useful or whether the phase knob needs to be reconsidered.",
+        ]
+    )
+    report_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return report_path
+
+
 def main() -> int:
     args = parse_args()
     results_root = _resolve_path(args.results_root)
-    output_csv = _resolve_path(args.output_csv)
-    report_path = _resolve_path(args.report)
-    rows = build_subset_summary_rows(results_root)
-    write_summary_csv(rows, output_csv)
-    write_length_width_trend_report(rows, report_path)
+    if args.subset == "p2-width":
+        default_csv = "outputs/apcd_k6_metagrating_633nm/phase_state_candidates/p2_width_trend_summary.csv"
+        default_report = "reports/apcd_k6_p2_width_candidate_trend_note.md"
+        rows = build_subset_summary_rows(results_root, P2_WIDTH_VARIANTS)
+        output_csv = _resolve_path(args.output_csv or default_csv)
+        report_path = _resolve_path(args.report or default_report)
+        write_summary_csv(rows, output_csv, P2_WIDTH_SUMMARY_FIELDS)
+        write_p2_width_trend_report(rows, report_path)
+    else:
+        default_csv = "outputs/apcd_k6_metagrating_633nm/phase_state_candidates/p1_length_width_trend_summary.csv"
+        default_report = "reports/apcd_k6_p1_length_width_candidate_trend_note.md"
+        rows = build_subset_summary_rows(results_root)
+        output_csv = _resolve_path(args.output_csv or default_csv)
+        report_path = _resolve_path(args.report or default_report)
+        write_summary_csv(rows, output_csv)
+        write_length_width_trend_report(rows, report_path)
     print(f"rows={len(rows)}")
     print(f"output_csv={output_csv}")
     print(f"report={report_path}")

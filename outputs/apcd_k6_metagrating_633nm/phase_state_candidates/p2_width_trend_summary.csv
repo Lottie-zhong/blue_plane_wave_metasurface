@@ -1,0 +1,5 @@
+variant_id,changed_parameter,delta_nm,target_conversion,opposite_spin_leakage,conversion_to_leakage_ratio,PD,total_transmission,phase_deg,phase_shift_vs_baseline_deg,early_target_pass,early_leakage_pass,early_ratio_pass,overall_early_pass,notes
+p2W_m10,pillar_2_width_nm,-10.0,0.9326477741220178,0.3489369565512095,2.6728260122927705,0.4554601842546334,0.6407923653366139,107.57055018975015,-3.746100720439358,True,False,False,False,existing real-run result summarized; not a new FDTD run
+p2W_m5,pillar_2_width_nm,-5.0,0.9536094363333241,0.14331073983793746,6.654137976023684,0.7387034299277365,0.5484600880856311,109.3414613256755,-1.9751895845140268,True,True,True,True,existing real-run result summarized; not a new FDTD run
+baseline,none,0.0,0.9711541351322045,0.0401994772579764,24.158377206667513,0.9205036166065964,0.5056768061950905,111.31665091018952,0.0,True,True,True,True,existing real-run result summarized; not a new FDTD run
+p2W_p10,pillar_2_width_nm,10.0,0.989295647991839,0.013538327784482138,73.07369592969323,0.9729998621666397,0.5014169878881605,115.51767735660424,4.201026446414716,True,True,True,True,existing real-run result summarized; not a new FDTD run
