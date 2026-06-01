@@ -1,0 +1,63 @@
+project:
+  name: blue_plane_wave_metasurface
+  stage: 08_p5_apcd_k6_phase_state_candidate_config_scaffold
+candidate:
+  variant_id: p1L_p5
+  candidate_type: one_factor_geometry_variant
+  description: one-factor pillar_1_length_nm plus 5 nm from alpha-pass baseline
+  changed_parameter: pillar_1_length_nm
+  delta_nm: 5
+  source_route_csv: outputs/apcd_k6_metagrating_633nm/phase_state_candidate_route.csv
+  notes: single-dimer candidate config scaffold only; not evaluated; not a steering
+    result
+boundary:
+  no_fdtd_run_in_this_step: true
+  no_fsp_export_in_this_step: true
+  not_k7: true
+  not_sweep: true
+  not_phase_ramp_supercell: true
+  not_steering_result: true
+target:
+  wavelength_nm: 633
+  incident_wave: plane_wave
+  output_basis: alpha_beta
+  target_polarization_type: elliptical
+  psi_deg: 112.5
+  chi_deg: 22.5
+  eps: 1.0e-12
+  spin_er_threshold_db: 8
+  conversion_to_leakage_threshold: 6
+material:
+  substrate: Al2O3
+  meta_material: c-Si
+  substrate_material_lumerical: <Object defined dielectric>
+  meta_material_lumerical: <Object defined dielectric>
+  substrate_index: 1.76
+  meta_index: 3.88
+geometry:
+  layout_mode: apcd_fractional
+  period_x_nm: 340
+  period_y_nm: 340
+  height_nm: 300
+  minimum_gap_nm: 5
+  nanopillar_1:
+    length_nm: 135
+    width_nm: 70
+    frac_x: 0.75
+    frac_y: 0.75
+    rotation_deg: 67.5
+  nanopillar_2:
+    length_nm: 85
+    width_nm: 150
+    frac_x: 0.25
+    frac_y: 0.25
+    rotation_deg: 112.5
+simulation:
+  substrate_thickness_nm: 220
+  source_offset_nm: 120
+  monitor_offset_nm: 180
+  z_padding_above_nm: 260
+  mesh_accuracy: 1
+  simulation_time_fs: 250
+output:
+  result_dir: outputs/apcd_k6_metagrating_633nm/phase_state_candidates/p1L_p5

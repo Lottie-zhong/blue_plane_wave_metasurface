@@ -1,0 +1,14 @@
+variant_id,config_path,candidate_type,changed_parameter,delta_nm,pillar_1_length_nm,pillar_1_width_nm,pillar_1_rotation_deg,pillar_2_length_nm,pillar_2_width_nm,pillar_2_rotation_deg,notes
+baseline,configs/apcd_k6_phase_state_candidates/baseline.yaml,baseline,none,0.0,130.0,70.0,67.5,85.0,150.0,112.5,config scaffold only; no FDTD run; no .fsp export; not a steering result
+p1L_m10,configs/apcd_k6_phase_state_candidates/p1L_m10.yaml,one_factor_geometry_variant,pillar_1_length_nm,-10.0,120.0,70.0,67.5,85.0,150.0,112.5,config scaffold only; no FDTD run; no .fsp export; not a steering result
+p1L_m5,configs/apcd_k6_phase_state_candidates/p1L_m5.yaml,one_factor_geometry_variant,pillar_1_length_nm,-5.0,125.0,70.0,67.5,85.0,150.0,112.5,config scaffold only; no FDTD run; no .fsp export; not a steering result
+p1L_p5,configs/apcd_k6_phase_state_candidates/p1L_p5.yaml,one_factor_geometry_variant,pillar_1_length_nm,5.0,135.0,70.0,67.5,85.0,150.0,112.5,config scaffold only; no FDTD run; no .fsp export; not a steering result
+p1L_p10,configs/apcd_k6_phase_state_candidates/p1L_p10.yaml,one_factor_geometry_variant,pillar_1_length_nm,10.0,140.0,70.0,67.5,85.0,150.0,112.5,config scaffold only; no FDTD run; no .fsp export; not a steering result
+p1W_m5,configs/apcd_k6_phase_state_candidates/p1W_m5.yaml,one_factor_geometry_variant,pillar_1_width_nm,-5.0,130.0,65.0,67.5,85.0,150.0,112.5,config scaffold only; no FDTD run; no .fsp export; not a steering result
+p1W_p5,configs/apcd_k6_phase_state_candidates/p1W_p5.yaml,one_factor_geometry_variant,pillar_1_width_nm,5.0,130.0,75.0,67.5,85.0,150.0,112.5,config scaffold only; no FDTD run; no .fsp export; not a steering result
+p2L_m5,configs/apcd_k6_phase_state_candidates/p2L_m5.yaml,one_factor_geometry_variant,pillar_2_length_nm,-5.0,130.0,70.0,67.5,80.0,150.0,112.5,config scaffold only; no FDTD run; no .fsp export; not a steering result
+p2L_p5,configs/apcd_k6_phase_state_candidates/p2L_p5.yaml,one_factor_geometry_variant,pillar_2_length_nm,5.0,130.0,70.0,67.5,90.0,150.0,112.5,config scaffold only; no FDTD run; no .fsp export; not a steering result
+p2W_m10,configs/apcd_k6_phase_state_candidates/p2W_m10.yaml,one_factor_geometry_variant,pillar_2_width_nm,-10.0,130.0,70.0,67.5,85.0,140.0,112.5,config scaffold only; no FDTD run; no .fsp export; not a steering result
+p2W_m5,configs/apcd_k6_phase_state_candidates/p2W_m5.yaml,one_factor_geometry_variant,pillar_2_width_nm,-5.0,130.0,70.0,67.5,85.0,145.0,112.5,config scaffold only; no FDTD run; no .fsp export; not a steering result
+p2W_p5,configs/apcd_k6_phase_state_candidates/p2W_p5.yaml,one_factor_geometry_variant,pillar_2_width_nm,5.0,130.0,70.0,67.5,85.0,155.0,112.5,config scaffold only; no FDTD run; no .fsp export; not a steering result
+p2W_p10,configs/apcd_k6_phase_state_candidates/p2W_p10.yaml,one_factor_geometry_variant,pillar_2_width_nm,10.0,130.0,70.0,67.5,85.0,160.0,112.5,config scaffold only; no FDTD run; no .fsp export; not a steering result
