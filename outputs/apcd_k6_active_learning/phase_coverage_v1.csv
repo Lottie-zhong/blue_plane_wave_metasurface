@@ -1,0 +1,7 @@
+phase_bin_deg,nearest_candidate_all,nearest_phase_all,nearest_error_all,nearest_candidate_early_pass,nearest_phase_early_pass,nearest_error_early_pass,bin_status,notes
+0.0,doe_lhs_like_01,59.3589,59.358900000000006,fine_p1w_dx_03,98.55022672300163,98.55022672300163,missing,large phase gap remains near 0 deg
+60.0,doe_lhs_like_01,59.3589,0.6410999999999945,fine_p1w_dx_03,98.55022672300163,38.55022672300163,high_leakage_only,nearest phase evidence fails early leakage/ratio requirements
+120.0,p1W_p5,118.07875127181353,1.9212487281864696,p1W_p5,118.07875127181353,1.9212487281864696,covered_candidate,early-pass candidate is close to this bin
+-180.0,p1L_p10,124.13005700428602,55.869942995713984,p1W_p5,118.07875127181353,61.92124872818647,missing,large phase gap remains near -180 deg
+-120.0,p1L_p10,124.13005700428602,115.86994299571398,p1W_p5,118.07875127181353,121.92124872818647,missing,large phase gap remains near -120 deg
+-60.0,doe_lhs_like_01,59.3589,119.3589,fine_p1w_dx_03,98.55022672300163,158.55022672300163,missing,large phase gap remains near -60 deg
