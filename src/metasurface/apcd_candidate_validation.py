@@ -41,6 +41,32 @@ NEIGHBORHOOD_VALIDATION_FIELDS = [
     "notes",
 ]
 
+FINE_VALIDATION_FIELDS = [
+    "candidate_id",
+    "candidate_family",
+    "same_cell_min_gap_nm",
+    "periodic_image_min_gap_nm",
+    "minimum_gap_nm_threshold",
+    "bounds_pass",
+    "same_cell_gap_pass",
+    "periodic_gap_pass",
+    "beta_selective_geometry_pass",
+    "rotation_policy_pass",
+    "duplicate_geometry_pass",
+    "overall_geometry_pass",
+    "recommended_for_fdtd",
+    "notes",
+]
+
+EXISTING_P1W_DX_REFERENCE_GEOMETRIES = {
+    # doe_p1w_dx_01
+    (130.0, 60.0, 85.0, 150.0, -30.0, 0.0),
+    # nhood_p1w_dx_05
+    (130.0, 60.0, 85.0, 150.0, -35.0, 0.0),
+    # nhood_p1w_dx_02
+    (130.0, 55.0, 85.0, 150.0, -30.0, 0.0),
+}
+
 
 Point = tuple[float, float]
 Polygon = list[Point]
@@ -175,6 +201,47 @@ def validate_neighborhood_candidate_pool(
     return rows
 
 
+def validate_fine_candidate_geometry(
+    candidate: dict[str, object],
+    *,
+    duplicate_geometry_pass: bool = True,
+    minimum_gap_nm: float = 5.0,
+) -> dict[str, object]:
+    row = validate_candidate_geometry(candidate, minimum_gap_nm=minimum_gap_nm)
+    notes = [] if row["notes"] == "geometry sanity validation passed; optical response still unknown" else [row["notes"]]
+    row["duplicate_geometry_pass"] = duplicate_geometry_pass
+    row["overall_geometry_pass"] = bool(row["overall_geometry_pass"] and duplicate_geometry_pass)
+    row["recommended_for_fdtd"] = row["overall_geometry_pass"]
+    if not duplicate_geometry_pass:
+        notes.append("duplicates existing p1w_dx reference geometry")
+    if not notes:
+        notes.append("geometry sanity validation passed; duplicate check passed; optical response still unknown")
+    row["notes"] = "; ".join(notes)
+    return row
+
+
+def validate_fine_candidate_pool(
+    candidates: Iterable[dict[str, object]],
+    minimum_gap_nm: float = 5.0,
+    existing_geometries: Iterable[tuple[float, float, float, float, float, float]] = EXISTING_P1W_DX_REFERENCE_GEOMETRIES,
+) -> list[dict[str, object]]:
+    existing = set(existing_geometries)
+    seen: set[tuple[float, float, float, float, float, float]] = set()
+    rows = []
+    for candidate in candidates:
+        key = _geometry_key(candidate)
+        duplicate_pass = key not in existing and key not in seen
+        rows.append(
+            validate_fine_candidate_geometry(
+                candidate,
+                duplicate_geometry_pass=duplicate_pass,
+                minimum_gap_nm=minimum_gap_nm,
+            )
+        )
+        seen.add(key)
+    return rows
+
+
 def export_candidate_validation_csv(rows: Iterable[dict[str, object]], path: str | Path) -> Path:
     row_list = list(rows)
     output_path = Path(path)
@@ -194,6 +261,17 @@ def export_neighborhood_candidate_validation_csv(rows: Iterable[dict[str, object
         writer = csv.DictWriter(handle, fieldnames=NEIGHBORHOOD_VALIDATION_FIELDS)
         writer.writeheader()
         writer.writerows({field: row.get(field, "") for field in NEIGHBORHOOD_VALIDATION_FIELDS} for row in row_list)
+    return output_path
+
+
+def export_fine_candidate_validation_csv(rows: Iterable[dict[str, object]], path: str | Path) -> Path:
+    row_list = list(rows)
+    output_path = Path(path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with output_path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=FINE_VALIDATION_FIELDS)
+        writer.writeheader()
+        writer.writerows({field: row.get(field, "") for field in FINE_VALIDATION_FIELDS} for row in row_list)
     return output_path
 
 
@@ -258,6 +336,46 @@ def summarize_neighborhood_validation(rows: Sequence[dict[str, object]]) -> dict
         "recommended_for_fdtd_count": len(recommended),
         "minimum_same_cell_gap_nm": min(same_cell_gaps) if same_cell_gaps else None,
         "minimum_periodic_image_gap_nm": min(periodic_gaps) if periodic_gaps else None,
+        "family_counts": dict(sorted(family_counts.items())),
+        "fail_reason_counts": dict(sorted(fail_reason_counts.items())),
+    }
+
+
+def summarize_fine_validation(rows: Sequence[dict[str, object]]) -> dict[str, object]:
+    total = len(rows)
+    pass_rows = [row for row in rows if _is_true(row["overall_geometry_pass"])]
+    recommended = [row for row in rows if _is_true(row["recommended_for_fdtd"])]
+    fail_rows = [row for row in rows if not _is_true(row["overall_geometry_pass"])]
+    duplicate_fail_rows = [row for row in rows if not _is_true(row["duplicate_geometry_pass"])]
+    family_counts: dict[str, dict[str, int]] = {}
+    for row in rows:
+        family = str(row["candidate_family"])
+        if family not in family_counts:
+            family_counts[family] = {"total": 0, "pass": 0, "fail": 0, "recommended": 0}
+        family_counts[family]["total"] += 1
+        if _is_true(row["overall_geometry_pass"]):
+            family_counts[family]["pass"] += 1
+        else:
+            family_counts[family]["fail"] += 1
+        if _is_true(row["recommended_for_fdtd"]):
+            family_counts[family]["recommended"] += 1
+
+    fail_reason_counts: dict[str, int] = {}
+    for row in fail_rows:
+        for reason in str(row["notes"]).split("; "):
+            fail_reason_counts[reason] = fail_reason_counts.get(reason, 0) + 1
+
+    same_cell_gaps = [float(row["same_cell_min_gap_nm"]) for row in rows]
+    periodic_gaps = [float(row["periodic_image_min_gap_nm"]) for row in rows]
+    return {
+        "total": total,
+        "geometry_pass_count": len(pass_rows),
+        "fail_count": len(fail_rows),
+        "recommended_for_fdtd_count": len(recommended),
+        "minimum_same_cell_gap_nm": min(same_cell_gaps) if same_cell_gaps else None,
+        "minimum_periodic_image_gap_nm": min(periodic_gaps) if periodic_gaps else None,
+        "duplicate_geometry_pass_count": total - len(duplicate_fail_rows),
+        "duplicate_geometry_fail_count": len(duplicate_fail_rows),
         "family_counts": dict(sorted(family_counts.items())),
         "fail_reason_counts": dict(sorted(fail_reason_counts.items())),
     }
@@ -383,3 +501,14 @@ def _shift_polygon(poly: Polygon, dx: float, dy: float) -> Polygon:
 
 def _is_true(value: object) -> bool:
     return value is True or str(value) == "True"
+
+
+def _geometry_key(candidate: dict[str, object]) -> tuple[float, float, float, float, float, float]:
+    return (
+        float(candidate["p1_length_nm"]),
+        float(candidate["p1_width_nm"]),
+        float(candidate["p2_length_nm"]),
+        float(candidate["p2_width_nm"]),
+        float(candidate.get("internal_dx_nm", 0.0)),
+        float(candidate.get("internal_dy_nm", 0.0)),
+    )
