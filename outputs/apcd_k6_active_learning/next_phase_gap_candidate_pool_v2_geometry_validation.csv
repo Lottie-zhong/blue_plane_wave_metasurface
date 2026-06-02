@@ -1,0 +1,39 @@
+candidate_id,candidate_family,target_bin_deg,same_cell_min_gap_nm,periodic_image_min_gap_nm,minimum_gap_nm_threshold,bounds_pass,same_cell_gap_pass,periodic_gap_pass,duplicate_candidate_id_pass,duplicate_geometry_pass,rotation_reasonable_pass,beta_selective_geometry_pass,overall_geometry_pass,recommended_for_fdtd,notes
+next_rot_anchor_01,rotation_assisted_anchor_probe,0,141.79228410910665,61.17778676542791,5.0,True,True,True,True,True,True,True,True,True,geometry sanity validation passed; optical response still unknown
+next_rot_anchor_02,rotation_assisted_anchor_probe,0,137.3121960198129,59.704965703325804,5.0,True,True,True,True,True,True,True,True,True,geometry sanity validation passed; optical response still unknown
+next_rot_anchor_03,rotation_assisted_anchor_probe,0,110.00945297335578,79.59162080028433,5.0,True,True,True,True,True,True,True,True,True,geometry sanity validation passed; optical response still unknown
+next_rot_anchor_04,rotation_assisted_anchor_probe,-60,124.38278754074085,58.30689153999698,5.0,True,True,True,True,True,True,True,True,True,geometry sanity validation passed; optical response still unknown
+next_rot_anchor_05,rotation_assisted_anchor_probe,-60,121.27988747024942,56.44992715833962,5.0,True,True,True,True,True,True,True,True,True,geometry sanity validation passed; optical response still unknown
+next_rot_anchor_06,rotation_assisted_anchor_probe,-60,101.0938037619624,70.18557005570428,5.0,True,True,True,True,True,True,True,True,True,geometry sanity validation passed; optical response still unknown
+next_rot_anchor_07,rotation_assisted_anchor_probe,-120,124.38278754074085,58.30689153999698,5.0,True,True,True,True,False,True,True,False,False,duplicate geometry
+next_rot_anchor_08,rotation_assisted_anchor_probe,-120,121.27988747024942,56.44992715833962,5.0,True,True,True,True,False,True,True,False,False,duplicate geometry
+next_rot_anchor_09,rotation_assisted_anchor_probe,-120,101.0938037619624,70.18557005570428,5.0,True,True,True,True,False,True,True,False,False,duplicate geometry
+next_rot_anchor_10,rotation_assisted_anchor_probe,-180,134.78387212702273,50.3763290947089,5.0,True,True,True,True,True,True,True,True,True,geometry sanity validation passed; optical response still unknown
+next_rot_anchor_11,rotation_assisted_anchor_probe,-180,129.5513369544965,48.407751676147456,5.0,True,True,True,True,True,True,True,True,True,geometry sanity validation passed; optical response still unknown
+next_rot_anchor_12,rotation_assisted_anchor_probe,-180,100.31489974385497,68.72622011058712,5.0,True,True,True,True,True,True,True,True,True,geometry sanity validation passed; optical response still unknown
+next_zero_rot_anchor_03,zero_bin_probe,0,142.46395350393018,71.8024915393866,5.0,True,True,True,True,True,True,True,True,True,geometry sanity validation passed; optical response still unknown
+next_zero_probe_02,zero_bin_probe,0,122.05938346829564,83.20212134557168,5.0,True,True,True,True,True,True,True,True,True,geometry sanity validation passed; optical response still unknown
+next_zero_probe_03,zero_bin_probe,0,130.38184873412914,83.3831816179556,5.0,True,True,True,True,True,True,True,True,True,geometry sanity validation passed; optical response still unknown
+next_zero_probe_04,zero_bin_probe,0,121.94923173468152,83.73858393120521,5.0,True,True,True,True,True,True,True,True,True,geometry sanity validation passed; optical response still unknown
+next_zero_probe_05,zero_bin_probe,0,137.9008932439142,69.3000914511504,5.0,True,True,True,True,True,True,True,True,True,geometry sanity validation passed; optical response still unknown
+next_zero_probe_06,zero_bin_probe,0,135.0340129900156,57.959801316064976,5.0,True,True,True,True,True,True,True,True,True,geometry sanity validation passed; optical response still unknown
+next_neg60_rot_anchor_02,negative_bin_rotation_probe,-60,124.38278754074085,58.30689153999698,5.0,True,True,True,True,False,True,True,False,False,duplicate geometry
+next_neg60_probe_02,negative_bin_rotation_probe,-60,121.27988747024942,56.44992715833962,5.0,True,True,True,True,False,True,True,False,False,duplicate geometry
+next_neg60_probe_03,negative_bin_rotation_probe,-60,105.88806471175837,61.84348957497538,5.0,True,True,True,True,True,True,True,True,True,geometry sanity validation passed; optical response still unknown
+next_neg60_probe_04,negative_bin_rotation_probe,-60,120.27446399157314,92.32740774971435,5.0,True,True,True,True,True,True,True,True,True,geometry sanity validation passed; optical response still unknown
+next_neg120_rot_anchor_02,negative_bin_rotation_probe,-120,101.0938037619624,70.18557005570428,5.0,True,True,True,True,False,True,True,False,False,duplicate geometry
+next_neg120_probe_02,negative_bin_rotation_probe,-120,121.27988747024942,56.44992715833962,5.0,True,True,True,True,False,True,True,False,False,duplicate geometry
+next_neg120_probe_03,negative_bin_rotation_probe,-120,124.38278754074085,58.30689153999698,5.0,True,True,True,True,False,True,True,False,False,duplicate geometry
+next_neg120_probe_04,negative_bin_rotation_probe,-120,120.27446399157314,92.32740774971435,5.0,True,True,True,True,False,True,True,False,False,duplicate geometry
+next_pi_probe_01,pi_bin_probe,-180,138.411607497433,47.044152951726176,5.0,True,True,True,True,True,True,True,True,True,geometry sanity validation passed; optical response still unknown
+next_pi_probe_02,pi_bin_probe,-180,133.15053761110752,45.08050977159542,5.0,True,True,True,True,True,True,True,True,True,geometry sanity validation passed; optical response still unknown
+next_pi_mixed_bridge_03,pi_bin_probe,-180,127.75438769624787,47.82019765979474,5.0,True,True,True,True,True,True,True,True,True,geometry sanity validation passed; optical response still unknown
+next_pi_probe_04,pi_bin_probe,-180,115.41580755379523,81.47428823166297,5.0,True,True,True,True,True,True,True,True,True,geometry sanity validation passed; optical response still unknown
+next_pi_probe_05,pi_bin_probe,-180,113.16759848603695,80.46239997461325,5.0,True,True,True,True,True,True,True,True,True,geometry sanity validation passed; optical response still unknown
+next_pi_probe_06,pi_bin_probe,-180,113.85799589264776,76.80500884547048,5.0,True,True,True,True,True,True,True,True,True,geometry sanity validation passed; optical response still unknown
+next_mixed_bridge_01,mixed_safe_bridge,0,108.78532879505268,91.50667486025463,5.0,True,True,True,True,True,True,True,True,True,geometry sanity validation passed; optical response still unknown
+next_mixed_bridge_02,mixed_safe_bridge,-60,122.72382611889037,49.18641856996316,5.0,True,True,True,True,True,True,True,True,True,geometry sanity validation passed; optical response still unknown
+next_mixed_bridge_03,mixed_safe_bridge,-120,111.52824477437949,67.95612540145588,5.0,True,True,True,True,True,True,True,True,True,geometry sanity validation passed; optical response still unknown
+next_mixed_bridge_04,mixed_safe_bridge,-180,120.78193280419212,54.98511718951476,5.0,True,True,True,True,True,True,True,True,True,geometry sanity validation passed; optical response still unknown
+next_mixed_bridge_05,mixed_safe_bridge,0,123.76367453204503,82.37346438904918,5.0,True,True,True,True,True,True,True,True,True,geometry sanity validation passed; optical response still unknown
+next_mixed_bridge_06,mixed_safe_bridge,-60,125.9763158187602,51.83018891931809,5.0,True,True,True,True,True,True,True,True,True,geometry sanity validation passed; optical response still unknown

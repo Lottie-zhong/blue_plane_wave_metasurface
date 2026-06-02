@@ -1,0 +1,7 @@
+phase_bin_deg,nearest_candidate_all,nearest_phase_all,nearest_error_all,nearest_candidate_early_pass,nearest_phase_early_pass,nearest_error_early_pass,nearest_candidate_evidence_only,nearest_phase_evidence_only,nearest_error_evidence_only,coverage_status,notes
+0.0,doe_lhs_like_01,59.3589,59.358900000000006,aggr_lhs_retention_dy_05,72.24132809604521,72.24132809604521,doe_lhs_like_01,59.3589,59.358900000000006,open_gap,major open gap remains near 0 deg
+60.0,doe_lhs_like_01,59.3589,0.6410999999999945,aggr_lhs_retention_dy_05,72.24132809604521,12.241328096045208,doe_lhs_like_01,59.3589,0.6410999999999945,early_covered,nearest early-pass candidate is aggr_lhs_retention_dy_05 at error 12.241328096045208 deg
+120.0,p1W_p5,118.07875127181353,1.9212487281864696,p1W_p5,118.07875127181353,1.9212487281864696,p1L_p10,124.13005700428602,4.130057004286016,strong_covered,nearest early-pass candidate is p1W_p5 at error 1.9212487281864696 deg
+-180.0,p1L_p10,124.13005700428602,55.869942995713984,p1W_p5,118.07875127181353,61.92124872818647,p1L_p10,124.13005700428602,55.869942995713984,open_gap,major open gap remains near -180 deg
+-120.0,p1L_p10,124.13005700428602,115.86994299571398,p1W_p5,118.07875127181353,121.92124872818647,p1L_p10,124.13005700428602,115.86994299571398,open_gap,major open gap remains near -120 deg
+-60.0,doe_lhs_like_01,59.3589,119.3589,aggr_lhs_retention_dy_05,72.24132809604521,132.2413280960452,doe_lhs_like_01,59.3589,119.3589,open_gap,major open gap remains near -60 deg
