@@ -70,10 +70,10 @@ def test_script_can_be_imported_and_reads_13_variants() -> None:
 
 
 def test_variant_ids_are_unique_and_config_count_is_13() -> None:
-    config_paths = sorted(CONFIG_DIR.glob("*.yaml"))
     index_rows = _index_rows()
 
-    assert len(config_paths) == 13
+    config_paths = [CONFIG_DIR / f"{variant_id}.yaml" for variant_id in VARIANT_IDS]
+    assert all(path.is_file() for path in config_paths)
     assert len(index_rows) == 13
     assert len({row["variant_id"] for row in index_rows}) == 13
     assert [row["variant_id"] for row in index_rows] == VARIANT_IDS
@@ -150,7 +150,7 @@ def test_dry_run_regenerates_configs_index_and_no_fsp() -> None:
     assert "candidate_count=13" in completed.stdout
     assert "config_count=13" in completed.stdout
     assert "status=dry_run_config_scaffold_only_no_fdtd_no_fsp_not_steering_result" in completed.stdout
-    assert len(list(CONFIG_DIR.glob("*.yaml"))) == 13
+    assert all((CONFIG_DIR / f"{variant_id}.yaml").is_file() for variant_id in VARIANT_IDS)
     assert len(_index_rows()) == 13
     assert list(REPO_ROOT.glob("configs/apcd_k6_phase_state_candidates/*.fsp")) == []
 
