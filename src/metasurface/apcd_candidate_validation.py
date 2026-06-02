@@ -24,6 +24,23 @@ VALIDATION_FIELDS = [
     "notes",
 ]
 
+NEIGHBORHOOD_VALIDATION_FIELDS = [
+    "candidate_id",
+    "candidate_family",
+    "source_reference",
+    "same_cell_min_gap_nm",
+    "periodic_image_min_gap_nm",
+    "minimum_gap_nm_threshold",
+    "bounds_pass",
+    "same_cell_gap_pass",
+    "periodic_gap_pass",
+    "beta_selective_geometry_pass",
+    "rotation_policy_pass",
+    "overall_geometry_pass",
+    "recommended_for_fdtd",
+    "notes",
+]
+
 
 Point = tuple[float, float]
 Polygon = list[Point]
@@ -146,6 +163,18 @@ def validate_candidate_pool(
     return [validate_candidate_geometry(candidate, minimum_gap_nm=minimum_gap_nm) for candidate in candidates]
 
 
+def validate_neighborhood_candidate_pool(
+    candidates: Iterable[dict[str, object]],
+    minimum_gap_nm: float = 5.0,
+) -> list[dict[str, object]]:
+    rows = []
+    for candidate in candidates:
+        row = validate_candidate_geometry(candidate, minimum_gap_nm=minimum_gap_nm)
+        row["source_reference"] = candidate.get("source_reference", "")
+        rows.append(row)
+    return rows
+
+
 def export_candidate_validation_csv(rows: Iterable[dict[str, object]], path: str | Path) -> Path:
     row_list = list(rows)
     output_path = Path(path)
@@ -154,6 +183,17 @@ def export_candidate_validation_csv(rows: Iterable[dict[str, object]], path: str
         writer = csv.DictWriter(handle, fieldnames=VALIDATION_FIELDS)
         writer.writeheader()
         writer.writerows({field: row.get(field, "") for field in VALIDATION_FIELDS} for row in row_list)
+    return output_path
+
+
+def export_neighborhood_candidate_validation_csv(rows: Iterable[dict[str, object]], path: str | Path) -> Path:
+    row_list = list(rows)
+    output_path = Path(path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with output_path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=NEIGHBORHOOD_VALIDATION_FIELDS)
+        writer.writeheader()
+        writer.writerows({field: row.get(field, "") for field in NEIGHBORHOOD_VALIDATION_FIELDS} for row in row_list)
     return output_path
 
 
@@ -183,6 +223,43 @@ def summarize_validation(rows: Sequence[dict[str, object]]) -> dict[str, object]
         "recommended_for_fdtd_count": len(recommended),
         "anchor_status": anchor_status,
         "fail_reason_counts": dict(sorted(reason_counts.items())),
+    }
+
+
+def summarize_neighborhood_validation(rows: Sequence[dict[str, object]]) -> dict[str, object]:
+    total = len(rows)
+    pass_rows = [row for row in rows if _is_true(row["overall_geometry_pass"])]
+    recommended = [row for row in rows if _is_true(row["recommended_for_fdtd"])]
+    fail_rows = [row for row in rows if not _is_true(row["overall_geometry_pass"])]
+    family_counts: dict[str, dict[str, int]] = {}
+    for row in rows:
+        family = str(row["candidate_family"])
+        if family not in family_counts:
+            family_counts[family] = {"total": 0, "pass": 0, "fail": 0, "recommended": 0}
+        family_counts[family]["total"] += 1
+        if _is_true(row["overall_geometry_pass"]):
+            family_counts[family]["pass"] += 1
+        else:
+            family_counts[family]["fail"] += 1
+        if _is_true(row["recommended_for_fdtd"]):
+            family_counts[family]["recommended"] += 1
+
+    fail_reason_counts: dict[str, int] = {}
+    for row in fail_rows:
+        for reason in str(row["notes"]).split("; "):
+            fail_reason_counts[reason] = fail_reason_counts.get(reason, 0) + 1
+
+    same_cell_gaps = [float(row["same_cell_min_gap_nm"]) for row in rows]
+    periodic_gaps = [float(row["periodic_image_min_gap_nm"]) for row in rows]
+    return {
+        "total": total,
+        "geometry_pass_count": len(pass_rows),
+        "fail_count": len(fail_rows),
+        "recommended_for_fdtd_count": len(recommended),
+        "minimum_same_cell_gap_nm": min(same_cell_gaps) if same_cell_gaps else None,
+        "minimum_periodic_image_gap_nm": min(periodic_gaps) if periodic_gaps else None,
+        "family_counts": dict(sorted(family_counts.items())),
+        "fail_reason_counts": dict(sorted(fail_reason_counts.items())),
     }
 
 

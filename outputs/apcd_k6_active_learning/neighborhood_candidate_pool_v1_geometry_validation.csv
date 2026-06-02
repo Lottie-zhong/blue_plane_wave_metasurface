@@ -1,0 +1,25 @@
+candidate_id,candidate_family,source_reference,same_cell_min_gap_nm,periodic_image_min_gap_nm,minimum_gap_nm_threshold,bounds_pass,same_cell_gap_pass,periodic_gap_pass,beta_selective_geometry_pass,rotation_policy_pass,overall_geometry_pass,recommended_for_fdtd,notes
+nhood_p1w_dx_01,p1w_dx_neighborhood,doe_p1w_dx_01,61.32868165992121,101.43287303276797,5.0,True,True,True,True,True,True,True,geometry sanity validation passed; optical response still unknown
+nhood_p1w_dx_02,p1w_dx_neighborhood,doe_p1w_dx_01,64.05565471554984,103.93630252774872,5.0,True,True,True,True,True,True,True,geometry sanity validation passed; optical response still unknown
+nhood_p1w_dx_03,p1w_dx_neighborhood,doe_p1w_dx_01,67.04510875471475,105.66098464839983,5.0,True,True,True,True,True,True,True,geometry sanity validation passed; optical response still unknown
+nhood_p1w_dx_04,p1w_dx_neighborhood,doe_p1w_dx_01,58.759693332853374,97.2515969047706,5.0,True,True,True,True,True,True,True,geometry sanity validation passed; optical response still unknown
+nhood_p1w_dx_05,p1w_dx_neighborhood,doe_p1w_dx_01,61.00429721873679,99.49323275315402,5.0,True,True,True,True,True,True,True,geometry sanity validation passed; optical response still unknown
+nhood_p1w_dx_06,p1w_dx_neighborhood,doe_p1w_dx_01,66.40157917033287,104.15083726079222,5.0,True,True,True,True,True,True,True,geometry sanity validation passed; optical response still unknown
+nhood_p1w_dx_07,p1w_dx_neighborhood,doe_p1w_dx_01,60.78109380522861,97.57909097580756,5.0,True,True,True,True,True,True,True,geometry sanity validation passed; optical response still unknown
+nhood_p1w_dx_08,p1w_dx_neighborhood,doe_p1w_dx_01,63.16697787949192,99.94804785736159,5.0,True,True,True,True,True,True,True,geometry sanity validation passed; optical response still unknown
+nhood_p1w_dx_09,p1w_dx_neighborhood,doe_p1w_dx_01,60.660188337722964,95.69197786469138,5.0,True,True,True,True,True,True,True,geometry sanity validation passed; optical response still unknown
+nhood_p1w_dx_10,p1w_dx_neighborhood,doe_p1w_dx_01,65.38284127413628,100.48197450635634,5.0,True,True,True,True,True,True,True,geometry sanity validation passed; optical response still unknown
+nhood_lhs_leakred_01,lhs_like_leakage_reduction,doe_lhs_like_01,95.45652060478768,92.89234686091801,5.0,True,True,True,True,True,True,True,geometry sanity validation passed; optical response still unknown
+nhood_lhs_leakred_02,lhs_like_leakage_reduction,doe_lhs_like_01,89.42121335479476,88.56567457863606,5.0,True,True,True,True,True,True,True,geometry sanity validation passed; optical response still unknown
+nhood_lhs_leakred_03,lhs_like_leakage_reduction,doe_lhs_like_01,86.84625843221187,93.42158800179485,5.0,True,True,True,True,True,True,True,geometry sanity validation passed; optical response still unknown
+nhood_lhs_leakred_04,lhs_like_leakage_reduction,doe_lhs_like_01,76.35538599738805,93.25200999027565,5.0,True,True,True,True,True,True,True,geometry sanity validation passed; optical response still unknown
+nhood_lhs_leakred_05,lhs_like_leakage_reduction,doe_lhs_like_01,74.6644872859498,94.86432210207133,5.0,True,True,True,True,True,True,True,geometry sanity validation passed; optical response still unknown
+nhood_lhs_leakred_06,lhs_like_leakage_reduction,doe_lhs_like_01,67.82307096939107,97.65191539188525,5.0,True,True,True,True,True,True,True,geometry sanity validation passed; optical response still unknown
+nhood_lhs_leakred_07,lhs_like_leakage_reduction,doe_lhs_like_01,72.35957240003584,93.6551379028266,5.0,True,True,True,True,True,True,True,geometry sanity validation passed; optical response still unknown
+nhood_lhs_leakred_08,lhs_like_leakage_reduction,doe_lhs_like_01,75.0812717019541,91.1037835286171,5.0,True,True,True,True,True,True,True,geometry sanity validation passed; optical response still unknown
+nhood_lhs_leakred_09,lhs_like_leakage_reduction,doe_lhs_like_01,83.38209470997863,88.27081793640687,5.0,True,True,True,True,True,True,True,geometry sanity validation passed; optical response still unknown
+nhood_lhs_leakred_10,lhs_like_leakage_reduction,doe_lhs_like_01,77.5363804631969,86.24828816580329,5.0,True,True,True,True,True,True,True,geometry sanity validation passed; optical response still unknown
+nhood_bridge_dx_lhs_01,bridge_dx_lhs,doe_p1w_dx_01|doe_lhs_like_01,73.3516525790284,99.76349492785297,5.0,True,True,True,True,True,True,True,geometry sanity validation passed; optical response still unknown
+nhood_bridge_dx_lhs_02,bridge_dx_lhs,doe_p1w_dx_01|doe_lhs_like_01,80.53046400038858,88.81816570702297,5.0,True,True,True,True,True,True,True,geometry sanity validation passed; optical response still unknown
+nhood_bridge_dx_lhs_03,bridge_dx_lhs,doe_p1w_dx_01|doe_lhs_like_01,69.72988269558779,88.59552834791708,5.0,True,True,True,True,True,True,True,geometry sanity validation passed; optical response still unknown
+nhood_bridge_dx_lhs_04,bridge_dx_lhs,doe_p1w_dx_01|doe_lhs_like_01,88.13036151454213,88.68711138508806,5.0,True,True,True,True,True,True,True,geometry sanity validation passed; optical response still unknown
