@@ -1,0 +1,11 @@
+candidate_id,candidate_family,target_bin_deg,helper_role_pass,helper_not_apcd_dimer_pass,same_cell_min_gap_nm,periodic_image_min_gap_nm,minimum_gap_nm_threshold,core_bounds_pass,helper_bounds_pass,beta_selective_geometry_pass,overall_geometry_pass,recommended_for_fdtd,notes
+wh_zero_aux_phase_01,apcd_core_plus_weak_helper,0,True,True,39.83401460189533,58.445355362939736,5.0,True,True,True,True,True,weak helper geometry validation passed; optical response unknown
+wh_zero_aux_phase_02,apcd_core_plus_weak_helper,0,True,True,35.02379977375963,58.445355362939736,5.0,True,True,True,True,True,weak helper geometry validation passed; optical response unknown
+wh_zero_aux_phase_03,apcd_core_plus_weak_helper,0,True,True,17.83815397552293,58.445355362939736,5.0,True,True,True,True,True,weak helper geometry validation passed; optical response unknown
+wh_zero_aux_phase_04,apcd_core_plus_weak_helper,0,True,True,4.5793475713159575,58.445355362939736,5.0,True,True,True,False,False,same-cell gap below threshold
+wh_zero_aux_phase_05,apcd_core_plus_weak_helper,0,True,True,26.78678678451702,58.445355362939736,5.0,True,True,True,True,True,weak helper geometry validation passed; optical response unknown
+wh_neg60_aux_phase_01,apcd_core_plus_weak_helper,-60,True,True,0.0,94.18781854783813,5.0,True,True,True,False,False,same-cell gap below threshold
+wh_neg60_aux_phase_02,apcd_core_plus_weak_helper,-60,True,True,0.0,94.18781854783813,5.0,True,True,True,False,False,same-cell gap below threshold
+wh_neg60_aux_phase_03,apcd_core_plus_weak_helper,-60,True,True,0.0,94.18781854783813,5.0,True,True,True,False,False,same-cell gap below threshold
+wh_neg60_aux_phase_04,apcd_core_plus_weak_helper,-60,True,True,0.0,94.18781854783813,5.0,True,True,True,False,False,same-cell gap below threshold
+wh_neg60_aux_phase_05,apcd_core_plus_weak_helper,-60,True,True,0.0,94.18781854783813,5.0,True,True,True,False,False,same-cell gap below threshold

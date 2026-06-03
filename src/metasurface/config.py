@@ -66,6 +66,7 @@ class APCDNanopillarConfig:
     frac_x: float | None = None
     frac_y: float | None = None
     rotation_rule: str | None = None
+    role: str | None = None
 
 
 @dataclass(frozen=True)
@@ -76,6 +77,7 @@ class APCDDimerGeometryConfig:
     height_nm: float
     nanopillar_1: APCDNanopillarConfig
     nanopillar_2: APCDNanopillarConfig
+    nanopillar_helper: APCDNanopillarConfig | None = None
     minimum_gap_nm: float = 5.0
 
 
@@ -259,6 +261,14 @@ def load_apcd_single_dimer_config(path: Union[str, Path]) -> APCDSingleDimerConf
             period_y_nm=period_y_nm,
             target_data=target_data,
         ),
+        nanopillar_helper=_load_optional_apcd_nanopillar(
+            geometry_data,
+            "nanopillar_helper",
+            layout_mode=layout_mode,
+            period_x_nm=period_x_nm,
+            period_y_nm=period_y_nm,
+            target_data=target_data,
+        ),
         minimum_gap_nm=float(geometry_data.get("minimum_gap_nm", 5.0)),
     )
     return APCDSingleDimerConfig(
@@ -319,6 +329,28 @@ def _load_apcd_nanopillar(
         frac_x=frac_x,
         frac_y=frac_y,
         rotation_rule=None if rotation_rule is None else str(rotation_rule),
+        role=_optional_str(pillar_data.get("role", pillar_data.get("helper_role"))),
+    )
+
+
+def _load_optional_apcd_nanopillar(
+    geometry_data: dict[str, Any],
+    key: str,
+    *,
+    layout_mode: str,
+    period_x_nm: float,
+    period_y_nm: float,
+    target_data: dict[str, Any],
+) -> APCDNanopillarConfig | None:
+    if key not in geometry_data or geometry_data[key] is None:
+        return None
+    return _load_apcd_nanopillar(
+        geometry_data,
+        key,
+        layout_mode=layout_mode,
+        period_x_nm=period_x_nm,
+        period_y_nm=period_y_nm,
+        target_data=target_data,
     )
 
 
@@ -337,6 +369,12 @@ def _optional_float(value: Any) -> float | None:
     if value is None:
         return None
     return float(value)
+
+
+def _optional_str(value: Any) -> str | None:
+    if value is None:
+        return None
+    return str(value)
 
 
 def load_runtime_config(path: Union[str, Path]) -> RuntimeConfig:

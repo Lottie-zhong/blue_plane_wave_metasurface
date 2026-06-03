@@ -1,0 +1,80 @@
+project:
+  name: blue_plane_wave_metasurface
+  stage: 09_p36_p38_nextgen_phase_knob_pilot
+candidate:
+  variant_id: wh_zero_aux_phase_01
+  candidate_type: apcd_core_plus_weak_helper
+  description: nextgen phase-knob pilot candidate
+  target_bin_deg: 0
+  source_stage: 09-P36/P38
+  anchor_candidate: ng_zero_rot_release_07
+  risk_level: pilot_moderate_risk
+  design_rationale: Keep APCD core responsible for spin-selective conversion and add
+    one weak helper pillar as an extra phase knob; helper is not another APCD dimer
+    or half-dimer.
+  source_pool_csv: outputs/apcd_k6_active_learning/weak_helper_candidate_pool_v6.csv
+  notes: pilot config only; no full nextgen pool run; not a steering result
+  helper_role: weak_auxiliary_phase_helper
+boundary:
+  no_k7: true
+  not_phase_ramp_supercell: true
+  not_steering_result: true
+  not_complete_k6_library_claim: true
+target:
+  wavelength_nm: 633
+  incident_wave: plane_wave
+  output_basis: alpha_beta
+  target_polarization_type: elliptical
+  psi_deg: 112.5
+  chi_deg: 22.5
+  eps: 1.0e-12
+  spin_er_threshold_db: 8
+  conversion_to_leakage_threshold: 6
+material:
+  substrate: Al2O3
+  meta_material: c-Si
+  substrate_material_lumerical: <Object defined dielectric>
+  meta_material_lumerical: <Object defined dielectric>
+  substrate_index: 1.76
+  meta_index: 3.88
+geometry:
+  layout_mode: manual_absolute
+  period_x_nm: 340
+  period_y_nm: 340
+  height_nm: 300
+  minimum_gap_nm: 5
+  nanopillar_1:
+    length_nm: 116
+    width_nm: 62
+    rotation_deg: 45
+    x_nm: 57
+    y_nm: 113
+    frac_x: 0.75
+    frac_y: 0.75
+  nanopillar_2:
+    length_nm: 78
+    width_nm: 152
+    rotation_deg: 105
+    x_nm: -57
+    y_nm: -113
+    frac_x: 0.25
+    frac_y: 0.25
+  nanopillar_helper:
+    role: weak_auxiliary_phase_helper
+    helper_role: weak_auxiliary_phase_helper
+    length_nm: 42
+    width_nm: 28
+    rotation_deg: 0
+    x_nm: 0
+    y_nm: 0
+    frac_x: 0.5
+    frac_y: 0.5
+simulation:
+  substrate_thickness_nm: 220
+  source_offset_nm: 120
+  monitor_offset_nm: 180
+  z_padding_above_nm: 260
+  mesh_accuracy: 1
+  simulation_time_fs: 250
+output:
+  result_dir: outputs/apcd_k6_metagrating_633nm/phase_state_candidates/wh_zero_aux_phase_01

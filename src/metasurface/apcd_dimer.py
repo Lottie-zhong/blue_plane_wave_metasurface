@@ -455,8 +455,8 @@ def _build_apcd_single_dimer_model(
     fdtd.set("z max", 0)
     _set_material(fdtd, config.material, is_substrate=True)
 
-    _add_nanopillar(fdtd, config, config.geometry.nanopillar_1, "nanopillar_1")
-    _add_nanopillar(fdtd, config, config.geometry.nanopillar_2, "nanopillar_2")
+    for name, pillar in _apcd_nanopillars(config):
+        _add_nanopillar(fdtd, config, pillar, name)
     _add_plane_wave_sources(fdtd, config, incident_polarization, period_x, period_y, source_z, wavelength)
 
     fdtd.addpower()
@@ -496,16 +496,22 @@ def _add_nanopillar(
 
 def validate_apcd_single_dimer_geometry(config: APCDSingleDimerConfig) -> APCDGeometryValidation:
     geometry = config.geometry
-    polygons = {
-        "nanopillar_1": _rotated_rectangle_corners_nm(geometry.nanopillar_1),
-        "nanopillar_2": _rotated_rectangle_corners_nm(geometry.nanopillar_2),
-    }
+    polygons = {name: _rotated_rectangle_corners_nm(pillar) for name, pillar in _apcd_nanopillars(config)}
 
-    same_cell_gap_nm = _polygon_gap_nm(polygons["nanopillar_1"], polygons["nanopillar_2"])
+    same_cell_gap_nm = math.inf
+    same_cell_pair = ""
+    polygon_items = list(polygons.items())
+    for index, (name_a, poly_a) in enumerate(polygon_items):
+        for name_b, poly_b in polygon_items[index + 1 :]:
+            gap_nm = _polygon_gap_nm(poly_a, poly_b)
+            if gap_nm < same_cell_gap_nm:
+                same_cell_gap_nm = gap_nm
+                same_cell_pair = f"{name_a} to {name_b} in same periodic cell"
     minimum_gap_nm = same_cell_gap_nm
-    nearest_pair = "nanopillar_1 to nanopillar_2 in same periodic cell"
+    nearest_pair = same_cell_pair
 
     periodic_gap_nm = math.inf
+    nearest_periodic_pair = ""
     for shift_x, shift_y in _periodic_neighbor_shifts_nm(geometry.period_x_nm, geometry.period_y_nm):
         for central_name, central_polygon in polygons.items():
             for image_name, image_polygon in polygons.items():
@@ -537,6 +543,16 @@ def validate_apcd_single_dimer_geometry(config: APCDSingleDimerConfig) -> APCDGe
         minimum_allowed_gap_nm=geometry.minimum_gap_nm,
         nearest_pair_description=nearest_pair,
     )
+
+
+def _apcd_nanopillars(config: APCDSingleDimerConfig) -> list[tuple[str, APCDNanopillarConfig]]:
+    pillars = [
+        ("nanopillar_1", config.geometry.nanopillar_1),
+        ("nanopillar_2", config.geometry.nanopillar_2),
+    ]
+    if config.geometry.nanopillar_helper is not None:
+        pillars.append(("nanopillar_helper", config.geometry.nanopillar_helper))
+    return pillars
 
 
 def _periodic_neighbor_shifts_nm(period_x_nm: float, period_y_nm: float) -> list[tuple[float, float]]:
@@ -1083,6 +1099,7 @@ def write_apcd_single_dimer_summary(row: dict[str, object], output_path: Union[s
     if isinstance(config, APCDSingleDimerConfig):
         p1 = config.geometry.nanopillar_1
         p2 = config.geometry.nanopillar_2
+        helper = config.geometry.nanopillar_helper
         lines.extend(
             [
                 "",
@@ -1107,6 +1124,15 @@ def write_apcd_single_dimer_summary(row: dict[str, object], output_path: Union[s
                     f"x_nm={p2.x_nm}, y_nm={p2.y_nm}, "
                     f"length_nm={p2.length_nm}, width_nm={p2.width_nm}, "
                     f"rotation_deg={p2.rotation_deg}, rotation_rule={p2.rotation_rule}"
+                ),
+                (
+                    "- nanopillar_helper: none"
+                    if helper is None
+                    else "- nanopillar_helper: "
+                    f"role={helper.role}, frac=({helper.frac_x}, {helper.frac_y}), "
+                    f"x_nm={helper.x_nm}, y_nm={helper.y_nm}, "
+                    f"length_nm={helper.length_nm}, width_nm={helper.width_nm}, "
+                    f"rotation_deg={helper.rotation_deg}, rotation_rule={helper.rotation_rule}"
                 ),
                 "- rotation_note: no 180-degree angle folding is applied in the generated setup.",
                 "- boundary_note: near a periodic boundary is not automatically wrong; overlap or too-small gap to periodic images is what fails validation.",
