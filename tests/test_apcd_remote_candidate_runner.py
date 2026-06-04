@@ -41,6 +41,8 @@ def test_ssh_command_construction(remote_runner_module) -> None:
     ]
     remote = command[-1]
     assert "git pull --ff-only | Out-Null" in remote
+    assert "Test-Path -LiteralPath 'configs\\runtime.yaml'" in remote
+    assert "Missing runtime config:" in remote
     assert r"N:\anaconda_envs\RCP_LCP\python.exe" in remote
     assert r"scripts\13_run_apcd_single_dimer.py" in remote
     assert r"scripts\70_remote_run_apcd_candidate.py" in remote

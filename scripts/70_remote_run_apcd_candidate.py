@@ -115,6 +115,10 @@ def build_remote_powershell_command(
             f"Set-Location -LiteralPath {quoted_root}",
             "git pull --ff-only | Out-Null",
             (
+                f"if (-not (Test-Path -LiteralPath {quoted_runtime})) "
+                f"{{ Write-Error ('Missing runtime config: ' + {quoted_runtime}); exit 1 }}"
+            ),
+            (
                 f"& {quoted_python} {ps_quote(RUNNER_SCRIPT)} --config {quoted_config} "
                 f"--runtime {quoted_runtime} | Out-Null"
             ),
