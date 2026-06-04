@@ -1,0 +1,84 @@
+project:
+  name: blue_plane_wave_metasurface
+  stage: 09_p45_p47_helper_refinement_fdtd
+candidate:
+  variant_id: hr_aniso_push_08
+  candidate_type: aniso_helper_phase_push
+  description: physics-guided helper refinement candidate
+  target_bin_deg: -180
+  source_stage: 09-P45/P47
+  anchor_candidate: h2_weak_aniso_03
+  helper_role: weak_auxiliary_phase_helper
+  helper_type: weak rectangular nanofin helper
+  helper_shape: weak rectangular nanofin helper
+  risk_level: medium_high_risk
+  design_rationale: APCD alpha-pass core remains fixed; standalone dielectric helper
+    probes controlled phase pulling toward high-positive/pi-near phase.
+  source_pool_csv: outputs/apcd_k6_active_learning/helper_refinement_candidate_pool_v8.csv
+  notes: helper refinement config; not a full pool run; not a steering result
+boundary:
+  no_k7: true
+  not_phase_ramp_supercell: true
+  not_steering_result: true
+  not_complete_k6_library_claim: true
+  not_random_helper_shape: true
+  not_freeform_helper_shape: true
+target:
+  wavelength_nm: 633
+  incident_wave: plane_wave
+  output_basis: alpha_beta
+  target_polarization_type: elliptical
+  psi_deg: 112.5
+  chi_deg: 22.5
+  eps: 1.0e-12
+  spin_er_threshold_db: 8
+  conversion_to_leakage_threshold: 6
+material:
+  substrate: Al2O3
+  meta_material: c-Si
+  substrate_material_lumerical: <Object defined dielectric>
+  meta_material_lumerical: <Object defined dielectric>
+  substrate_index: 1.76
+  meta_index: 3.88
+geometry:
+  layout_mode: manual_absolute
+  period_x_nm: 340
+  period_y_nm: 340
+  height_nm: 300
+  minimum_gap_nm: 50
+  nanopillar_1:
+    length_nm: 130
+    width_nm: 70
+    rotation_deg: 67.5
+    x_nm: 85
+    y_nm: 85
+    frac_x: 0.75
+    frac_y: 0.75
+  nanopillar_2:
+    length_nm: 85
+    width_nm: 150
+    rotation_deg: 112.5
+    x_nm: -85
+    y_nm: -85
+    frac_x: 0.25
+    frac_y: 0.25
+  nanopillar_helper:
+    role: weak_auxiliary_phase_helper
+    helper_role: weak_auxiliary_phase_helper
+    shape: weak rectangular nanofin helper
+    length_nm: 80
+    width_nm: 110
+    rotation_deg: 135
+    x_nm: -85
+    y_nm: 85
+    frac_x: 0.25
+    frac_y: 0.75
+simulation:
+  substrate_thickness_nm: 220
+  source_offset_nm: 120
+  monitor_offset_nm: 180
+  z_padding_above_nm: 260
+  mesh_accuracy: 1
+  simulation_time_fs: 250
+output:
+  result_dir: outputs/apcd_k6_metagrating_633nm/phase_state_candidates/hr_aniso_push_08
