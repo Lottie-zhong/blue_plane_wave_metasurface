@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import cmath
 import csv
 import math
@@ -36,6 +37,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--server-root", default=DEFAULT_SERVER_ROOT)
     parser.add_argument("--server-python", default=DEFAULT_SERVER_PYTHON)
     parser.add_argument("--runtime", default=DEFAULT_RUNTIME)
+    parser.add_argument("--skip-git-pull", action="store_true", help="Skip server git pull after an externally verified file sync.")
     parser.add_argument(
         "--parse-local-only",
         action="store_true",
@@ -59,6 +61,7 @@ def main() -> int:
         candidate_id=args.candidate_id,
         config=config,
         runtime=args.runtime,
+        skip_git_pull=args.skip_git_pull,
     )
     subprocess.run(command, cwd=REPO_ROOT, check=True)
     return 0
@@ -76,6 +79,7 @@ def build_ssh_command(
     candidate_id: str,
     config: str,
     runtime: str,
+    skip_git_pull: bool = False,
 ) -> list[str]:
     remote_command = build_remote_powershell_command(
         server_root=server_root,
@@ -83,6 +87,7 @@ def build_ssh_command(
         candidate_id=candidate_id,
         config=config,
         runtime=runtime,
+        skip_git_pull=skip_git_pull,
     )
     return [
         "ssh",
@@ -91,9 +96,13 @@ def build_ssh_command(
         "-NoProfile",
         "-ExecutionPolicy",
         "Bypass",
-        "-Command",
-        remote_command,
+        "-EncodedCommand",
+        encode_powershell_command(remote_command),
     ]
+
+
+def encode_powershell_command(command: str) -> str:
+    return base64.b64encode(command.encode("utf-16le")).decode("ascii")
 
 
 def build_remote_powershell_command(
@@ -103,17 +112,26 @@ def build_remote_powershell_command(
     candidate_id: str,
     config: str,
     runtime: str,
+    skip_git_pull: bool = False,
 ) -> str:
     quoted_root = ps_quote(server_root)
     quoted_python = ps_quote(server_python)
     quoted_candidate = ps_quote(candidate_id)
     quoted_config = ps_quote(config)
     quoted_runtime = ps_quote(runtime)
-    return "; ".join(
+    commands = [
+        "$ErrorActionPreference = 'Stop'",
+        f"Set-Location -LiteralPath {quoted_root}",
+    ]
+    if not skip_git_pull:
+        commands.extend(
+            [
+                "git pull --ff-only | Out-Null",
+                "if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }",
+            ]
+        )
+    commands.extend(
         [
-            "$ErrorActionPreference = 'Stop'",
-            f"Set-Location -LiteralPath {quoted_root}",
-            "git pull --ff-only | Out-Null",
             (
                 f"if (-not (Test-Path -LiteralPath {quoted_runtime})) "
                 f"{{ Write-Error ('Missing runtime config: ' + {quoted_runtime}); exit 1 }}"
@@ -130,6 +148,7 @@ def build_remote_powershell_command(
             "if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }",
         ]
     )
+    return "; ".join(commands)
 
 
 def ps_quote(value: str) -> str:

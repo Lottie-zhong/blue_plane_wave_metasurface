@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import base64
 import subprocess
 from pathlib import Path
 
@@ -37,10 +38,11 @@ def test_ssh_command_construction(remote_runner_module) -> None:
         "-NoProfile",
         "-ExecutionPolicy",
         "Bypass",
-        "-Command",
+        "-EncodedCommand",
     ]
-    remote = command[-1]
+    remote = base64.b64decode(command[-1]).decode("utf-16le")
     assert "git pull --ff-only | Out-Null" in remote
+    assert "if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }" in remote
     assert "Test-Path -LiteralPath 'configs\\runtime.yaml'" in remote
     assert "Missing runtime config:" in remote
     assert r"N:\anaconda_envs\RCP_LCP\python.exe" in remote
@@ -62,6 +64,22 @@ def test_remote_command_suppresses_noncompact_stdout(remote_runner_module) -> No
     assert "git pull --ff-only | Out-Null" in remote
     assert r"scripts\13_run_apcd_single_dimer.py" in remote
     assert r"--runtime 'configs\runtime.yaml' | Out-Null" in remote
+
+
+def test_remote_command_can_skip_git_pull_after_verified_sync(remote_runner_module) -> None:
+    command = remote_runner_module.build_ssh_command(
+        ssh_host="lumerical-win",
+        server_root=r"D:\project\blue_plane_wave_metasurface",
+        server_python=r"N:\anaconda_envs\RCP_LCP\python.exe",
+        candidate_id="cpk_mbin_lower_transition_01",
+        config=r"configs\apcd_k6_phase_state_candidates\cpk_mbin_lower_transition_01.yaml",
+        runtime=r"configs\runtime.yaml",
+        skip_git_pull=True,
+    )
+    remote = base64.b64decode(command[-1]).decode("utf-16le")
+
+    assert "git pull --ff-only" not in remote
+    assert "Test-Path -LiteralPath 'configs\\runtime.yaml'" in remote
 
 
 def test_phase_and_bin_logic(remote_runner_module) -> None:
