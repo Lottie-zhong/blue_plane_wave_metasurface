@@ -1,0 +1,4 @@
+candidate_id,family,height_nm,helper_length_nm,helper_width_nm,helper_rotation_deg,target_conversion,opposite_spin_leakage,conversion_to_leakage_ratio,PD,phase_deg,early_pass,role
+cpk_height_prop_05,helper_plus_height_propagation,420.0,70.0,120.0,135.0,0.927845,0.205773,4.5091,0.63696,-109.638,False,negative-phase anchor from P51-P53; opened phase but leakage was too high
+cpk_refine_htrans_04,height_transition_sweep,410.0,70.0,120.0,135.0,0.9636056974868278,0.019657855126929955,49.01886249628187,0.9600150843074483,-131.30783450605657,True,top2 v10 refinement; 410 nm height transition
+cpk_refine_weak_helper_03,weak_helper_leakage_recovery,420.0,65.0,110.0,120.0,0.9209460644500336,0.10013335570678987,9.197195659142267,0.803867644905011,-115.18225381935584,True,top2 v10 refinement; weakened/rotated helper at 420 nm
