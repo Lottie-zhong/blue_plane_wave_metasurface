@@ -1,0 +1,5 @@
+route,candidate_or_family,target_bin,p64_decision,next_action,rationale
+high_height_hprop,cpk_mbin_hprop_01,-180,negative_evidence_recorded,do_not_continue_same_push,440 nm moved phase to about -90 deg and collapsed selectivity with leakage about 0.62.
+high_height_hprop_backup,cpk_mbin_hprop_02,-180,disable_for_now,do_not_run_as_immediate_next_candidate,"It pushes height even higher than failed hprop_01, so leakage risk is likely worse."
+period_position_push,cpk_mbin_period_01,-60,hold_not_immediate,reconsider only after revised missing-bin planning,Previous pos_gap evidence showed period/gap expansion can increase leakage; avoid running without updated guardrails.
+missing_bin_planning_v2,P65 revised missing-bin candidate plan,all_missing,recommended_next,generate revised controlled candidate pool before more FDTD,P63 shows missing-bin search needs a new controlled strategy rather than stronger height push.
