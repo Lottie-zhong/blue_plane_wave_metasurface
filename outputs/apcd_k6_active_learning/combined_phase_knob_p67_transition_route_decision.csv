@@ -1,0 +1,5 @@
+item,decision,run_next,reason
+cpk_mbin_transition_01,record_as_near_pass_negative_branch_evidence,no,"It avoids 440 nm leakage collapse but lands at -145 deg, far from -60/0 missing bins."
+cpk_mbin_transition_02,optional_but_not_auto,only_if_budget_is_available,"P65 allowed it only if transition_01 was informative. It was informative in quality recovery but not promising for missing-bin access, so run only as a limited final check."
+K6_phase_ramp_supercell,do_not_enter,no,"Early-pass coverage remains only -120 and 120 deg; missing bins remain -180, -60, 0, and 60."
+next_planning_route,if_not_running_transition_02_then_revise_strategy,planning,Height-only transition sampling is not opening new bins; next strategy should consider more explicit phase-offset/library approaches.
