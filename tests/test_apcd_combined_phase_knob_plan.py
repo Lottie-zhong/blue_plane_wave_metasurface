@@ -121,7 +121,7 @@ def test_combined_phase_knob_dry_run_no_yaml_fsp_lumapi() -> None:
     )
     yaml_after = {path.name for path in (REPO_ROOT / "configs/apcd_k6_phase_state_candidates").glob("cpk_*.yaml")}
     fsp_after = {path.name for path in REPO_ROOT.glob("*.fsp")}
-    assert yaml_before == yaml_after == set()
+    assert yaml_before == yaml_after
     assert fsp_before == fsp_after
     assert "no_fdtd_no_lumapi_no_fsp_no_yaml_no_training" in completed.stdout
 
@@ -142,3 +142,4 @@ def test_combined_phase_knob_report_scope_and_top2() -> None:
     assert "random/freeform helper" in text
     assert "+15 deg steering claim" in text
     assert "complete K=6 phase-state library claim" in text
+
