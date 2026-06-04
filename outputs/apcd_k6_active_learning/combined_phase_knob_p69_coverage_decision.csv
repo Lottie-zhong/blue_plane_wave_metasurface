@@ -1,0 +1,4 @@
+item,decision,run_next,reason
+cpk_mbin_transition_02,record_as_positive_-180_early_pass,no immediate repeat,opens -180 deg bin with phase error 3.611 deg and early-pass quality
+K6_phase_ramp_supercell,do_not_enter_yet,no,"-60, 0, and 60 bins remain missing"
+next_planning_route,target_remaining_missing_bins,planning,next candidate pool should target -60, 0, and 60 rather than further polishing -180 or -120

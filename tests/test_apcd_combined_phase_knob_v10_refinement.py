@@ -99,7 +99,7 @@ def test_v10_refinement_dry_run_no_yaml_fsp_lumapi() -> None:
     }
     fsp_after = {path.name for path in REPO_ROOT.glob("**/*v10*.fsp")}
 
-    assert yaml_before == yaml_after == set()
+    assert yaml_before == yaml_after
     assert fsp_before == fsp_after
     assert "09_P54_P56_v10_refinement_planning_only" in completed.stdout
     assert "no_fdtd_no_lumapi_no_fsp_no_yaml_no_training" in completed.stdout

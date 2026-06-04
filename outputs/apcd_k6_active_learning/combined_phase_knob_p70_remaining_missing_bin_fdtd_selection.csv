@@ -1,0 +1,3 @@
+selection_rank,candidate_id,family,target_bins_deg,run_next,selection_reason,status
+1,cpk_mbin_lower_transition_01,lower_height_transition_probe,60/0,yes,Directly tests the lower-height interval between the 120 deg plateau and newly opened -180 deg state while keeping period fixed and geometry conservative.,selected_not_run
+2,cpk_mbin_lower_transition_02,lower_height_transition_probe,60/0,yes,Second lower-height interval probe to check whether the branch passes through 60 or 0 before the -180 jump.,selected_not_run
