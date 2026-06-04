@@ -1,0 +1,92 @@
+﻿project:
+  name: blue_plane_wave_metasurface
+  stage: 09_p66_missing_bin_transition_top1_fdtd
+candidate:
+  variant_id: cpk_mbin_transition_01
+  candidate_type: safe_height_transition_backoff
+  description: 09-P66 top-1 guarded transition candidate targeting missing -60 or 0 deg bins
+  primary_target_missing_bin_deg: -60
+  secondary_target_bin_deg: 0
+  source_stage: 09-P65
+  base_reference: between cpk_rot_release_02 and cpk_refine_htrans_03
+  comparison_candidates:
+    - cpk_rot_release_02
+    - cpk_refine_htrans_03
+    - cpk_refine_htrans_04
+  helper_role: weak_auxiliary_phase_helper
+  helper_type: weak auxiliary phase helper
+  helper_shape: weak rectangular nanofin helper
+  risk_level: medium
+  expected_phase_direction: sample safer transition between 120 deg plateau and -120 deg branch
+  design_rationale: 'P66 top-1 FDTD: back off from failed 440 nm height push and test height 380 nm with period fixed at 340 nm and 70x120 rot135 weak helper. Goal is to see whether -60 or 0 deg bins can be approached without high-height leakage collapse.'
+  source_plan_csv: outputs/apcd_k6_active_learning/combined_phase_knob_p65_revised_missing_bin_candidate_plan.csv
+  source_selection_csv: outputs/apcd_k6_active_learning/combined_phase_knob_p65_revised_missing_bin_fdtd_selection.csv
+  source_guardrail_csv: outputs/apcd_k6_active_learning/combined_phase_knob_p65_missing_bin_guardrails.csv
+  source_coverage_csv: outputs/apcd_k6_active_learning/combined_phase_knob_phase_state_coverage_p64.csv
+  notes: 09-P66 single-dimer guarded transition FDTD candidate; not K=6 phase-ramp, not steering result, not complete phase-state library
+boundary:
+  no_k7: true
+  not_phase_ramp_supercell: true
+  not_steering_result: true
+  not_complete_k6_library_claim: true
+  not_random_helper_shape: true
+  not_freeform_helper_shape: true
+target:
+  wavelength_nm: 633
+  incident_wave: plane_wave
+  output_basis: alpha_beta
+  target_polarization_type: elliptical
+  psi_deg: 112.5
+  chi_deg: 22.5
+  eps: 1.0e-12
+  spin_er_threshold_db: 8
+  conversion_to_leakage_threshold: 6
+material:
+  substrate: Al2O3
+  meta_material: c-Si
+  substrate_material_lumerical: <Object defined dielectric>
+  meta_material_lumerical: <Object defined dielectric>
+  substrate_index: 1.76
+  meta_index: 3.88
+geometry:
+  layout_mode: manual_absolute
+  period_x_nm: 340
+  period_y_nm: 340
+  height_nm: 380
+  minimum_gap_nm: 50
+  nanopillar_1:
+    length_nm: 130
+    width_nm: 70
+    rotation_deg: 67.5
+    x_nm: 85.0
+    y_nm: 85.0
+    frac_x: 0.75
+    frac_y: 0.75
+  nanopillar_2:
+    length_nm: 85
+    width_nm: 150
+    rotation_deg: 112.5
+    x_nm: -85.0
+    y_nm: -85.0
+    frac_x: 0.25
+    frac_y: 0.25
+  nanopillar_helper:
+    role: weak_auxiliary_phase_helper
+    helper_role: weak_auxiliary_phase_helper
+    shape: weak rectangular nanofin helper
+    length_nm: 70
+    width_nm: 120
+    rotation_deg: 135.0
+    x_nm: -85.0
+    y_nm: 85.0
+    frac_x: 0.25
+    frac_y: 0.75
+simulation:
+  substrate_thickness_nm: 220
+  source_offset_nm: 120
+  monitor_offset_nm: 180
+  z_padding_above_nm: 260
+  mesh_accuracy: 1
+  simulation_time_fs: 250
+output:
+  result_dir: outputs/apcd_k6_metagrating_633nm/phase_state_candidates/cpk_mbin_transition_01
