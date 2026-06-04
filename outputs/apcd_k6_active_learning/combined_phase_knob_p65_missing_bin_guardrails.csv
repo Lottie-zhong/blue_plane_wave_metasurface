@@ -1,0 +1,5 @@
+guardrail,rule,reason
+do_not_push_height_above_safe_window,avoid height >= 440 nm for immediate next FDTD,P63 hprop_01 at 440 nm moved phase near -90 deg and caused leakage about 0.62.
+pause_hprop_02,do not run cpk_mbin_hprop_02 as immediate next candidate,It increases height further than the failed P63 top-1 candidate.
+hold_period_gap_expansion,do not immediately run cpk_mbin_period_01 without a revised guarded plan,Previous pos_gap evidence showed period/gap expansion can place phase near -120 but worsens leakage and ratio.
+prefer_safe_transition_sampling,sample the transition region between the 120 deg plateau and the robust -120 deg branch with period fixed at 340 nm,This may open 60/0/-60 bins while avoiding the high-height leakage collapse.
