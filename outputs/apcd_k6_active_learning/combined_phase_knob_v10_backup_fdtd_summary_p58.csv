@@ -1,0 +1,4 @@
+candidate_id,family,height_nm,period_nm,target_conversion,opposite_spin_leakage,conversion_to_leakage_ratio,PD,phase_deg,early_pass,role
+cpk_refine_htrans_04,height_transition_sweep,410.0,340.0,0.963606,0.019658,49.0189,0.960015,-131.308,True,current strongest negative-phase candidate by leakage and ratio
+cpk_refine_weak_helper_03,weak_helper_leakage_recovery,420.0,340.0,0.920946,0.100133,9.1972,0.803868,-115.182,True,phase-near--120 comparison candidate
+cpk_refine_pos_gap_01,helper_position_gap_recovery,420.0,360.0,0.8955437346629211,0.23531695923132812,3.8056914282142835,0.5838267958164166,-116.53596968616662,False,backup candidate; phase close to -120 but leakage too high
