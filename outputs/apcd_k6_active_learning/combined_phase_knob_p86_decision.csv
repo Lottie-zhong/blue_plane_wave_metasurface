@@ -1,0 +1,2 @@
+stage,candidates_run,opens_missing_bin,updated_early_pass_bins,remaining_missing_bins,decision,reason
+09-P86,cpk_branch_core_offset_m45_01;cpk_branch_core_offset_m60_01;cpk_branch_core_offset_m75_01;cpk_branch_core_offset_m45_weak_01,False,"[-180, -120, 120]","[-60, 0, 60]",stop_after_max_4_no_early_pass_opening,"P85 confirmed the negative core-offset branch can place phase near 60 and 0, especially m45_weak at 59.538 deg, but all candidates failed early-pass due to leakage/ratio"
