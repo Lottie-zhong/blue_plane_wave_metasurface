@@ -1,0 +1,5 @@
+selection_rank,candidate_id,family,target_bins_deg,height_nm,period_x_nm,period_y_nm,run_next,selection_reason,status
+1,cpk_branch_core_offset_m30_01,apcd_core_common_rotation_offset,60/0,300,340,340,yes,Highest-priority branch test: fixed period and lower plateau height with common core rotation offset intended to shift away from the repeated -180 basin.,selected_not_run
+2,cpk_branch_core_offset_p30_01,apcd_core_common_rotation_offset,-60/0,300,340,340,yes,Opposite-sign common core offset gives a paired branch comparison for missing bins without using lower-transition/helper-lower geometry.,selected_not_run
+3,cpk_branch_internal_release_01,apcd_core_internal_rotation_release,0/60,300,340,340,yes,Internal APCD core release tests a new phase branch while keeping period fixed and avoiding h>=440 or the P75-P79 helper-lower route.,selected_not_run
+4,cpk_branch_helper_swap_br_01,helper_quadrant_swap,-60/0,300,340,340,yes,Quadrant swap probes a different helper-core coupling branch at the plateau height; it gives one non-core-rotation comparison in the top-4.,selected_not_run
