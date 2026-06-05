@@ -1,0 +1,7 @@
+decision_item,value,evidence
+stage,09-P113,P112 ran exactly four selected 0/60 resonance-search candidates.
+updated_early_pass_bins,"[-180, -120, -60, 120]","No P112 candidate had nearest bin in [0, 60] with early_pass=True."
+remaining_missing_bins,"[0, 60]","All P112 candidates remained nearest -60, or failed early-pass selectivity."
+best_useful_trend,cpk_060_alt_htrans04_h430_aniso_reduce10_01,"phase=-72.5522, target=0.8649, leakage=0.1182, ratio=7.3176; moves +15.70 deg from -88.25 while early-pass."
+closest_phase_but_not_success,cpk_060_alt_htrans04_h430_scale104_01,"phase=-62.8043, target=0.9489, leakage=0.2087, ratio=4.5479; near-pass only, not early-pass."
+next_action,"Plan a new core-preserving resonance continuation around h430_aniso_reduce10 with leakage margin, or a different non-helper-shape anchor; do not enter K=6 phase-ramp.","P112 shows useful phase motion but no [0,60] opening."

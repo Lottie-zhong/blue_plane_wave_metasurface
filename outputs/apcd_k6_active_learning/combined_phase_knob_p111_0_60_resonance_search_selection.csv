@@ -1,0 +1,5 @@
+selection_rank,candidate_id,family,target_bins_deg,height_nm,period_x_nm,period_y_nm,run_next,selection_reason,status
+1,cpk_060_alt_htrans04_h440_01,alt_htrans04_continuation_from_h430,0/60,440,340,340,yes,Single controlled h440 boundary from the -60-opening h430 anchor to test less-negative phase motion.,selected_not_run
+2,cpk_060_alt_htrans04_h430_aniso_reduce10_01,h430_geometry_aniso_trim,0/60,430,340,340,yes,H430 with stronger anisotropy reduction, using core geometry rather than more helper-shape checks.,selected_not_run
+3,cpk_060_alt_htrans04_h430_scale104_01,h430_common_size_scale_trim,0/60,430,340,340,yes,H430 with common size scale 1.04 tests resonance-size phase motion toward 0/60.,selected_not_run
+4,cpk_060_wh03_h430_aniso_reduce10_01,alternative_core_preserving_resonance_anchor,0/60,430,340,340,yes,Alternative weak-helper high-selectivity anchor, not common rotation and not a lower-transition repeat.,selected_not_run
