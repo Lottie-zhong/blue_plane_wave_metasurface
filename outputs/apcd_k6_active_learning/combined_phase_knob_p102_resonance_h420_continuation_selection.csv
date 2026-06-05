@@ -1,0 +1,5 @@
+selection_rank,candidate_id,family,target_bins_deg,height_nm,period_x_nm,period_y_nm,run_next,selection_reason,status
+1,cpk_rescont_h425_h420anchor_01,h425_continuation,60/0/-60,425,340,340,yes,+5 nm height continuation from the h420 useful-trend anchor; tests whether the phase trajectory remains early-pass.,selected_not_run
+2,cpk_rescont_h430_h420anchor_01,h430_continuation,60/0/-60,430,340,340,yes,+10 nm height continuation below 440 nm; tests stronger phase movement without high-height overreach.,selected_not_run
+3,cpk_rescont_h420_scale102_01,h420_common_size_trim,60/0/-60,420,340,340,yes,H420 plus small common size trim tests resonance-size phase motion while preserving fixed APCD rotations.,selected_not_run
+4,cpk_rescont_h420_aniso_reduce5_01,h420_anisotropy_trim,60/0/-60,420,340,340,yes,H420 plus anisotropy reduction tests a geometry trim that previously preserved strong selectivity.,selected_not_run
