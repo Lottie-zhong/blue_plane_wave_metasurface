@@ -1,0 +1,2 @@
+stage,candidates_run,opens_missing_bin,updated_early_pass_bins,remaining_missing_bins,decision,reason
+09-P80,cpk_mbin_helper_rot_lower_01;cpk_mbin_helper_rot_lower_02;cpk_mbin_helper_weak_lower_01;cpk_mbin_helper_weak_lower_02;cpk_mbin_nohelper_lower_01;cpk_mbin_period_guarded_lower_01,False,"[-180, -120, 120]","[-60, 0, 60]",stop_after_max_6_no_missing_bin_opened,all six controlled remaining-bin candidates were early-pass duplicates nearest to already covered -180
