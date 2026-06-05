@@ -1,0 +1,7 @@
+selection_rank,candidate_id,family,target_bins_deg,height_nm,period_x_nm,period_y_nm,run_next,selection_reason,status
+1,cpk_m60scan_common_m80_01,core_common_rotation_scan,-60/0,300,340,340,yes,Starts from the nearest continuation of the m75 point that had already moved toward the missing 0/-60 side.,selected_not_run
+2,cpk_m60scan_common_m90_01,core_common_rotation_scan,-60/0,300,340,340,yes,Central point for locating whether the negative-offset phase branch reaches the -60 bin.,selected_not_run
+3,cpk_m60scan_common_m100_01,core_common_rotation_scan,-60/0,300,340,340,yes,Bounded stronger offset to check for a -60 phase hit without entering random extra candidates.,selected_not_run
+4,cpk_m60scan_relcomp_m80_diff35_01,core_relative_angle_compensation,-60/0,300,340,340,yes,Tests relative-angle restoration near the earliest phase-scan point to recover selectivity.,selected_not_run
+5,cpk_m60scan_p2geom_m85_90x145_01,pillar2_mild_geometry_compensation,-60/0,300,340,340,yes,Tests a midpoint phase scan with mild pillar2 compensation and no beta-selective rollback.,selected_not_run
+6,cpk_m60scan_helper_suppress_m85_40x90_01,weak_leakage_suppression_helper,-60/0,300,340,340,yes,Tests helper leakage suppression at the scan midpoint using the best P91 helper-suppression motif.,selected_not_run
