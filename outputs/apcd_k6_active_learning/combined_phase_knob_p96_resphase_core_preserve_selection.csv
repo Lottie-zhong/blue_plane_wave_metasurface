@@ -1,0 +1,5 @@
+selection_rank,candidate_id,family,target_bins_deg,height_nm,period_x_nm,period_y_nm,run_next,selection_reason,status
+1,cpk_resphase_h380_nohelper_01,resphase_fixed_core_height,60/0/-60,380,340,340,yes,One no-helper height point tests resonance/propagation phase while preserving the APCD core rotations and avoiding helper leakage.,selected_not_run
+2,cpk_resphase_scale104_nohelper_01,resphase_fixed_core_size,60/0/-60,340,340,340,yes,One no-helper common-size point tests resonance phase through core size with min gap above 50 nm and fixed rotations.,selected_not_run
+3,cpk_resphase_anchor_wh03_h410_trim_m5_01,resphase_anchor_trim,60/0/-60,410,340,340,yes,Uses the high-quality weak-helper anchor and trims height/core dimensions gently to seek phase motion while preserving selectivity.,selected_not_run
+4,cpk_resphase_60lock_counter_m40_h320_helper35x85_01,resphase_60_phase_lock_recovery,60/0,320,340,340,yes,Controlled comparison from a failed 60deg phase-hit route; reduces helper strength and adjusts height instead of applying stronger common rotation.,selected_not_run
