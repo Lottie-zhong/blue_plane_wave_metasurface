@@ -1,0 +1,5 @@
+selection_rank,candidate_id,family,target_bins_deg,height_nm,period_x_nm,period_y_nm,run_next,selection_reason,status
+1,cpk_60rec_offset_m40_01,core_offset_interpolation,60/0,300,340,340,yes,Best balance between m30 leakage/ratio and m45_weak phase placement; interpolates before the m45 leakage jump and avoids m60/m75 collapse.,selected_not_run
+2,cpk_60rec_counter_m40_relax_01,core_offset_with_internal_counter_release,60/0,300,340,340,yes,Tests whether a small internal relative-angle restoration recovers APCD selectivity while preserving the m40 phase branch.,selected_not_run
+3,cpk_60rec_helper_pos_m45_far_01,helper_position_leakage_recovery,60/0,300,340,340,yes,Uses the phase-anchored m45_weak geometry and moves the helper farther away to reduce leakage without changing core dimensions.,selected_not_run
+4,cpk_60rec_helper_strength_m42p5_50x100_01,helper_strength_leakage_recovery,60/0,300,340,340,yes,Combines near-60 expected phase with moderate helper weakening, giving a leakage-recovery comparison distinct from position tuning.,selected_not_run
