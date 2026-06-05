@@ -1,0 +1,9 @@
+selection_rank,candidate_id,family,target_bins_deg,height_nm,period_x_nm,period_y_nm,run_next,selection_reason,status
+1,cpk_060_boundary_h435_aniso_reduce10_01,h430_aniso_reduce10_height_continuation,0/60,435,340,340,yes,Continue best P111 early-pass trend with sparse +5 nm height boundary.,selected_not_run
+2,cpk_060_boundary_h440_aniso_reduce10_01,h430_aniso_reduce10_height_continuation,0/60,440,340,340,yes,Check +10 nm height continuation without common rotation or helper-shape sweep.,selected_not_run
+3,cpk_060_boundary_h430_aniso_reduce15_01,h430_stronger_geometry_trim,0/60,430,340,340,yes,Stronger geometry/aniso trim at h430 to test phase movement and leakage margin.,selected_not_run
+4,cpk_060_boundary_h435_aniso_reduce15_01,h435_stronger_geometry_trim,0/60,435,340,340,yes,Combined h435 and stronger geometry trim as sparse boundary point.,selected_not_run
+5,cpk_060_boundary_h430_scale102_aniso_reduce10_01,scale_boundary_leakage_recovery,0/60,430,340,340,yes,Scale102 maps leakage recovery between h430_aniso_reduce10 and scale104 near-pass.,selected_not_run
+6,cpk_060_boundary_h430_scale103_aniso_reduce10_01,scale_boundary_leakage_recovery,0/60,430,340,340,yes,Scale103 is the middle boundary value for leakage onset.,selected_not_run
+7,cpk_060_boundary_h435_scale102_aniso_reduce10_01,scale_height_boundary_leakage_recovery,0/60,435,340,340,yes,Small scale plus h435 tests phase motion with selectivity margin.,selected_not_run
+8,cpk_060_boundary_h430_scale104_aniso_reduce10_01,high_risk_crossing_check,0/60,430,340,340,yes,High-risk crossing check only because min-gap estimate passed at 52.36 nm.,selected_not_run

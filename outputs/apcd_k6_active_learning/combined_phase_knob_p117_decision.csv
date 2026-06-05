@@ -1,0 +1,9 @@
+decision_item,value,evidence
+stage,09-P117,P115 ran exactly eight P114 boundary-value candidates.
+opened_bins,[],"No P115 candidate had nearest bin in [0, 60] with early_pass=True."
+updated_early_pass_bins,"[-180, -120, -60, 120]","The only early-pass P115 candidate remained nearest -60, an already-covered bin."
+remaining_missing_bins,"[0, 60]",No 0 or 60 bin was opened by the boundary-value batch.
+best_selectivity_preserving_boundary,cpk_060_boundary_h435_aniso_reduce10_01,"phase=-66.3341, target=0.8589, leakage=0.1384, ratio=6.2042; early-pass but not a new bin."
+near_pass_ratio_boundary,cpk_060_boundary_h440_aniso_reduce10_01,"phase=-63.0128, target=0.8608, leakage=0.1552, ratio=5.5453; ratio falls below 6."
+farthest_phase_push,cpk_060_boundary_h430_scale104_aniso_reduce10_01,"phase=-49.6312 but leakage=0.5287 and ratio=1.5756, so it is a failure boundary."
+branch_decision,alt_htrans04 boundary is a stable -60 basin for early-pass states; stronger scale/aniso should not continue.,"Aggressive candidates moved phase but failed leakage or ratio, while early-pass candidates stayed nearest -60."
