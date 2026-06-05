@@ -1,0 +1,2 @@
+stage,candidates_run,opens_missing_bin,updated_early_pass_bins,remaining_missing_bins,best_tradeoff_candidate,decision,reason
+09-P92,cpk_60sel_relangle_m40_diff35_01;cpk_60sel_p2geom_m40_90x145_01;cpk_60sel_helper_suppress_m40_40x90_01;cpk_60sel_corecomp_m35_p2_90x145_01,False,"[-180, -120, 120]","[-60, 0, 60]",cpk_60sel_helper_suppress_m40_40x90_01,stop_after_top4_no_early_pass_opening,"All P91 candidates are nearest 60 but fail leakage <=0.2 and ratio >=6; helper_suppress_m40_40x90 has best phase/selectivity balance"

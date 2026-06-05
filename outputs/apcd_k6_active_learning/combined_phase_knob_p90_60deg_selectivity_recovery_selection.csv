@@ -1,0 +1,5 @@
+selection_rank,candidate_id,family,target_bins_deg,height_nm,period_x_nm,period_y_nm,run_next,selection_reason,status
+1,cpk_60sel_relangle_m40_diff35_01,core_relative_angle_restoration,60/0,300,340,340,yes,Directly extends the P88 best-tradeoff m40 counter-release direction to test stronger selectivity recovery while staying near the 60 branch.,selected_not_run
+2,cpk_60sel_p2geom_m40_90x145_01,pillar2_mild_geometry_compensation,60/0,300,340,340,yes,Adds mild pillar2-only compensation around m40 without beta-selective rollback; targets leakage recovery at fixed phase branch.,selected_not_run
+3,cpk_60sel_helper_suppress_m40_40x90_01,leakage_channel_suppression_helper,60/0,300,340,340,yes,Tests helper-strength suppression without continuing helper-position sweeps; intended to reduce leakage channel coupling.,selected_not_run
+4,cpk_60sel_corecomp_m35_p2_90x145_01,m35_m40_phase_preserving_core_compensation,60/0,300,340,340,yes,Combines the safer m35 offset direction with mild pillar2 compensation to preserve phase while seeking selectivity recovery.,selected_not_run
