@@ -1,0 +1,5 @@
+selection_rank,candidate_id,family,target_bins_deg,height_nm,period_x_nm,period_y_nm,run_next,selection_reason,status
+1,cpk_alt_htrans04_h425_01,alt_htrans04_height_continuation,60/0/-60,425,340,340,yes,Small height continuation from the -99.5 deg early-pass pivot toward -60.,selected_not_run
+2,cpk_alt_htrans04_h430_01,alt_htrans04_height_continuation,60/0/-60,430,340,340,yes,Bounded h430 continuation below 440 nm, testing phase motion before selectivity loss.,selected_not_run
+3,cpk_alt_htrans04_h420_aniso_reduce10_01,alt_htrans04_stronger_anisotropy_trim,60/0/-60,420,340,340,yes,Stronger anisotropy trim than the pivot, using resonance geometry rather than height-only motion.,selected_not_run
+4,cpk_alt_htrans04_h420_square_helper50_01,alt_htrans04_isotropic_helper_phase_bias,60/0/-60,420,340,340,yes,Single weak isotropic square helper check for phase bias, not a helper-shape sweep.,selected_not_run

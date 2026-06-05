@@ -1,0 +1,87 @@
+project:
+  name: blue_plane_wave_metasurface
+  stage: 09_p108_alt_htrans04_continuation_fdtd
+candidate:
+  variant_id: cpk_alt_htrans04_h430_01
+  candidate_type: alt_htrans04_height_continuation
+  scheme_name: resphase_core_preserve
+  description: 09-P108 alt_htrans04 h430 continuation toward -60
+  target_bins_deg: 60/0/-60
+  source_stage: 09-P108
+  result_stage: 09-P109
+  anchor_candidate: cpk_resplateau_alt_htrans04_h420_aniso_reduce5_01
+  helper_role: weak_auxiliary_phase_helper
+  risk_level: medium_high
+  expected_phase_direction: stronger bounded height continuation toward -60 without h440 overreach
+  design_rationale: Raises the pivot from h420 to h430 while preserving APCD rotations, core dimensions, helper, and period.
+  source_plan_csv: outputs/apcd_k6_active_learning/combined_phase_knob_p108_alt_htrans04_continuation_plan.csv
+  source_selection_csv: outputs/apcd_k6_active_learning/combined_phase_knob_p108_alt_htrans04_continuation_selection.csv
+  source_coverage_csv: outputs/apcd_k6_active_learning/combined_phase_knob_phase_state_coverage_p107.csv
+  notes: Stage 09 alt_htrans04 continuation candidate; not K=6 phase-ramp, not steering, and not a complete phase-state library claim.
+boundary:
+  no_k7: true
+  not_phase_ramp_supercell: true
+  not_steering_result: true
+  not_complete_k6_library_claim: true
+  not_random_helper_shape: true
+  not_freeform_helper_shape: true
+  not_stronger_common_rotation_phase_pulling: true
+target:
+  wavelength_nm: 633
+  incident_wave: plane_wave
+  output_basis: alpha_beta
+  target_polarization_type: elliptical
+  psi_deg: 112.5
+  chi_deg: 22.5
+  eps: 1.0e-12
+  spin_er_threshold_db: 8
+  conversion_to_leakage_threshold: 6
+material:
+  substrate: Al2O3
+  meta_material: c-Si
+  substrate_material_lumerical: <Object defined dielectric>
+  meta_material_lumerical: <Object defined dielectric>
+  substrate_index: 1.76
+  meta_index: 3.88
+geometry:
+  layout_mode: manual_absolute
+  period_x_nm: 340
+  period_y_nm: 340
+  height_nm: 430
+  minimum_gap_nm: 50
+  nanopillar_1:
+    length_nm: 125
+    width_nm: 75
+    rotation_deg: 67.5
+    x_nm: 85.0
+    y_nm: 85.0
+    frac_x: 0.75
+    frac_y: 0.75
+  nanopillar_2:
+    length_nm: 90
+    width_nm: 145
+    rotation_deg: 112.5
+    x_nm: -85.0
+    y_nm: -85.0
+    frac_x: 0.25
+    frac_y: 0.25
+  nanopillar_helper:
+    role: weak_auxiliary_phase_helper
+    helper_role: weak_auxiliary_phase_helper
+    shape: weak rectangular nanofin helper
+    length_nm: 70
+    width_nm: 120
+    rotation_deg: 135
+    x_nm: -85
+    y_nm: 85
+    frac_x: 0.25
+    frac_y: 0.75
+simulation:
+  substrate_thickness_nm: 220
+  source_offset_nm: 120
+  monitor_offset_nm: 180
+  z_padding_above_nm: 260
+  mesh_accuracy: 1
+  simulation_time_fs: 250
+output:
+  result_dir: outputs/apcd_k6_metagrating_633nm/phase_state_candidates/cpk_alt_htrans04_h430_01
