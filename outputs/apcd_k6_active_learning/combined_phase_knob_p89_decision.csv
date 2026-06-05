@@ -1,0 +1,2 @@
+stage,candidates_run,opens_missing_bin,updated_early_pass_bins,remaining_missing_bins,best_tradeoff_candidate,decision,reason
+09-P89,cpk_60rec_offset_m40_01;cpk_60rec_counter_m40_relax_01;cpk_60rec_helper_pos_m45_far_01;cpk_60rec_helper_strength_m42p5_50x100_01,False,"[-180, -120, 120]","[-60, 0, 60]",cpk_60rec_counter_m40_relax_01,stop_after_top4_no_early_pass_opening,"All P88 candidates landed nearest 60 but failed early-pass; counter_m40_relax has best tradeoff by leakage 0.3364, ratio 1.9588, and phase error 5.46 deg"
