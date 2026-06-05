@@ -1,0 +1,5 @@
+selection_rank,candidate_id,family,target_bins_deg,height_nm,period_x_nm,period_y_nm,run_next,selection_reason,status
+1,cpk_rescont_h420_anchor_wh03_01,anchor_height_continuation,60/0/-60,420,340,340,yes,Tests +10 nm height continuation from the high-selectivity anchor to move phase away from -180 while preserving rotations/helper.,selected_not_run
+2,cpk_rescont_scale102_anchor_wh03_01,anchor_common_size_trim,60/0/-60,410,340,340,yes,Tests a small common core scale-up toward the original weak-helper anchor geometry while keeping APCD rotations fixed.,selected_not_run
+3,cpk_rescont_aniso_reduce5_anchor_wh03_01,anchor_anisotropy_trim,60/0/-60,410,340,340,yes,Tests resonance softening by reducing anisotropy with long-axis -5 nm and short-axis +5 nm trims.,selected_not_run
+4,cpk_rescont_ultraweak_helper35x85_anchor_wh03_01,ultraweak_helper_phase_bias,60/0/-60,410,340,340,yes,Tests helper coupling suppression at the same anchor core using an ultraweak 35x85 helper.,selected_not_run
