@@ -1,0 +1,5 @@
+selection_rank,candidate_id,family,target_bins_deg,height_nm,period_x_nm,period_y_nm,run_next,selection_reason,status
+1,cpk_resplateau_h434_boundary_01,height_boundary_below_h435,60/0/-60,434,340,340,yes,Boundary check below h435; tests whether height can leave the -120 plateau without crossing the h440 avoidance line.,selected_not_run
+2,cpk_resplateau_h420_aniso_reduce10_01,h420_stronger_anisotropy_trim,60/0/-60,420,340,340,yes,Stronger anisotropy reduction than reduce5 at h420; tests plateau boundary through resonance shape rather than height.,selected_not_run
+3,cpk_resplateau_h425_scale102_aniso_reduce5_01,h425_combined_size_anisotropy_trim,60/0/-60,425,340,340,yes,Combines h425 with size and anisotropy trims to avoid a pure height continuation.,selected_not_run
+4,cpk_resplateau_alt_htrans04_h420_aniso_reduce5_01,alternative_high_selectivity_anchor_trim,60/0/-60,420,340,340,yes,Alternative high-selectivity htrans04 anchor trim, not common rotation and not a lower-transition repeat.,selected_not_run
