@@ -1,0 +1,12 @@
+decision_item,value,evidence
+stage,09-P140,P137 ran exactly twelve selected P136 positive-basin iso-retardance candidates.
+selected_plus120_anchors,"[cpk_branch_helper_swap_br_01, cpk_rot_release_02, cpk_branch_internal_release_01, cpk_period_phase_04]","Selected automatically from coverage_p134 by nearest 120, early_pass true, leakage <=0.2, ratio >=6, ranked by ratio/leakage/target/phase closeness."
+opened_bins,[],No P137 candidate had nearest bin 60 with early_pass=True.
+useful_trends,[],No P137 candidate entered 75-105 deg with early_pass=True.
+phase_hit_failed,"[cpk_pos60_recover_m45weak_notch_p1_01, cpk_pos60_recover_m40counter_notch_p1_01]",Both rot60 recovery candidates landed in the 45-75 deg window but leakage >0.2 and ratio <6.
+best_positive_basin_selective_result,cpk_pos120_period390_h320_01,"phase=153.0397, target=0.9164, leakage=0.0369, ratio=24.8532, early_pass=True; still wraps to covered -180 rather than 60."
+closest_covered_plus120_result,cpk_pos120_rotrel_aspect_reduce5_01,"phase=128.9572, nearest 120, target=0.9460, leakage=0.1744, ratio=5.4240; near-pass ratio short of early-pass."
+best_60_phase_hit_failed,cpk_pos60_recover_m45weak_notch_p1_01,"phase=62.9936, target=0.6083, leakage=0.3922, ratio=1.5508; phase hit but selectivity failed."
+updated_early_pass_bins,"[-180, -120, -60, 120]",New early-pass results landed in already covered -180 or 120 bins; no 60 opening.
+remaining_missing_bins,"[0, 60]",No 0 or 60 bin opened.
+decision,"Positive-basin iso-retardance scans do not open 60 in this batch; dynamic/height/period knobs tend to wrap toward -180 or stay near +120, while rot60 recovery reaches phase but remains leakage-limited.",P137 compact metrics show no opened bin and two phase-hit failed rot60 candidates.
