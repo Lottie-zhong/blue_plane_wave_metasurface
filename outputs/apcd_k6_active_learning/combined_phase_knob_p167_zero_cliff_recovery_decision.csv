@@ -1,0 +1,7 @@
+decision_key,decision_value,notes
+stage,09-P167,Stage 09 zero-cliff recovery summary only; no K=6 phase-ramp or steering claim.
+existing_results_count,0,Candidates with a local result CSV available.
+opens_0_count,0,Counts only nearest_bin=0 with early_pass=true.
+early_pass_count,0,"Uses target>=0.5, leakage<=0.2, ratio>=6."
+best_available_candidate,,"Best among existing results by opens_0, early_pass, phase error to 0, and ratio."
+next_action,run_missing_real_fdtd_on_server,Missing results are not fabricated by this workflow.

@@ -1,0 +1,73 @@
+project:
+  name: blue_plane_wave_metasurface
+  stage: 09_p165_zero_cliff_recovery_candidate_yaml_only
+candidate:
+  variant_id: cpk_zero_l60_lhs_h232p4_p1geom120x57_01
+  candidate_type: p1_minor_compensation
+  scheme_name: zero_cliff_recovery_stage09
+  description: P165 zero-cliff recovery candidate cpk_zero_l60_lhs_h232p4_p1geom120x57_01
+  target_bins_deg: '0'
+  source_stage: 09-P165
+  anchor_candidate_id: aggr_lhs_retention_dy_05
+  source_branch: aggr_lhs_retention_dy_05 -> p1geom120x58
+  source_cliff: h232.5 p1geom early 60-bin versus h232.4 p1geom 0-bin selectivity
+    failure
+  source_plan_csv: outputs/apcd_k6_active_learning/combined_phase_knob_p165_zero_cliff_recovery_candidate_plan.csv
+  notes: Stage 09 YAML-only zero-bin recovery candidate; not K=6 phase-ramp, not steering,
+    not stage 10, and not a Micro-LED result.
+boundary:
+  no_k7: true
+  not_phase_ramp_supercell: true
+  not_steering_result: true
+  not_complete_k6_library_claim: true
+  not_stage10: true
+  no_fdtd_run_by_generator: true
+target:
+  wavelength_nm: 633
+  incident_wave: plane_wave
+  output_basis: alpha_beta
+  target_polarization_type: elliptical
+  psi_deg: 112.5
+  chi_deg: 22.5
+  eps: 1.0e-12
+  spin_er_threshold_db: 8
+  conversion_to_leakage_threshold: 6
+material:
+  substrate: Al2O3
+  meta_material: c-Si
+  substrate_material_lumerical: <Object defined dielectric>
+  meta_material_lumerical: <Object defined dielectric>
+  substrate_index: 1.76
+  meta_index: 3.88
+geometry:
+  layout_mode: manual_absolute
+  period_x_nm: 340
+  period_y_nm: 340
+  height_nm: 232.4
+  minimum_gap_nm: 5
+  nanopillar_1:
+    length_nm: 120
+    width_nm: 57
+    rotation_deg: 67.5
+    x_nm: 65
+    y_nm: 101
+    frac_x: 0.75
+    frac_y: 0.75
+    shape: rectangle
+  nanopillar_2:
+    length_nm: 75
+    width_nm: 135
+    rotation_deg: 112.5
+    x_nm: -65
+    y_nm: -101
+    frac_x: 0.25
+    frac_y: 0.25
+simulation:
+  substrate_thickness_nm: 220
+  source_offset_nm: 120
+  monitor_offset_nm: 180
+  z_padding_above_nm: 260
+  mesh_accuracy: 1
+  simulation_time_fs: 250
+output:
+  result_dir: outputs/apcd_k6_metagrating_633nm/phase_state_candidates/cpk_zero_l60_lhs_h232p4_p1geom120x57_01
