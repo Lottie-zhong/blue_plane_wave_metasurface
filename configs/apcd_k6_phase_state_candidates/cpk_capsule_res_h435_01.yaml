@@ -1,0 +1,81 @@
+project:
+  name: blue_plane_wave_metasurface
+  stage: 09_p127_capsule_resonance_branch_fdtd
+candidate:
+  variant_id: cpk_capsule_res_h435_01
+  candidate_type: capsule_height_continuation
+  scheme_name: capsule_core_resonance_branch
+  description: 09-P127 capsule/racetrack APCD core h435 safe boundary check
+  target_bins_deg: 0/60
+  source_stage: 09-P127
+  result_stage: 09-P128
+  helper_role: none
+  risk_level: medium_high
+  expected_phase_direction: test the safe boundary below h440 without claiming a height continuation path beyond this batch
+  design_rationale: h435 is the highest selected capsule height and should only be continued if selectivity remains strong.
+  source_plan_csv: outputs/apcd_k6_active_learning/combined_phase_knob_p127_capsule_resonance_branch_plan.csv
+  source_selection_csv: outputs/apcd_k6_active_learning/combined_phase_knob_p127_capsule_resonance_branch_selection.csv
+  source_coverage_csv: outputs/apcd_k6_active_learning/combined_phase_knob_phase_state_coverage_p126.csv
+  notes: Stage 09 capsule branch candidate; not K=6 phase-ramp, not steering, and not a complete phase-state library claim.
+boundary:
+  no_k7: true
+  not_phase_ramp_supercell: true
+  not_steering_result: true
+  not_complete_k6_library_claim: true
+  not_alt_htrans04_continuation: true
+  not_lower_transition_repeat: true
+  not_pure_helper_shape_sweep: true
+  not_stronger_common_rotation_phase_pulling: true
+  no_height_440_or_above: true
+target:
+  wavelength_nm: 633
+  incident_wave: plane_wave
+  output_basis: alpha_beta
+  target_polarization_type: elliptical
+  psi_deg: 112.5
+  chi_deg: 22.5
+  eps: 1.0e-12
+  spin_er_threshold_db: 8
+  conversion_to_leakage_threshold: 6
+material:
+  substrate: Al2O3
+  meta_material: c-Si
+  substrate_material_lumerical: <Object defined dielectric>
+  meta_material_lumerical: <Object defined dielectric>
+  substrate_index: 1.76
+  meta_index: 3.88
+geometry:
+  layout_mode: manual_absolute
+  period_x_nm: 340
+  period_y_nm: 340
+  height_nm: 435
+  minimum_gap_nm: 50
+  nanopillar_1:
+    shape: capsule
+    polygon_sides: 40
+    length_nm: 130
+    width_nm: 70
+    rotation_deg: 67.5
+    x_nm: 85.0
+    y_nm: 85.0
+    frac_x: 0.75
+    frac_y: 0.75
+  nanopillar_2:
+    shape: capsule
+    polygon_sides: 40
+    length_nm: 85
+    width_nm: 150
+    rotation_deg: 112.5
+    x_nm: -85.0
+    y_nm: -85.0
+    frac_x: 0.25
+    frac_y: 0.25
+simulation:
+  substrate_thickness_nm: 220
+  source_offset_nm: 120
+  monitor_offset_nm: 180
+  z_padding_above_nm: 260
+  mesh_accuracy: 1
+  simulation_time_fs: 250
+output:
+  result_dir: outputs/apcd_k6_metagrating_633nm/phase_state_candidates/cpk_capsule_res_h435_01

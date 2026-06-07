@@ -1,0 +1,10 @@
+decision_item,value,evidence
+stage,09-P130,P128 ran exactly six selected P127 capsule/racetrack branch candidates.
+opened_bins,[],"No P128 candidate had nearest bin in [0, 60] with early_pass=True."
+useful_trend,[],No P128 candidate moved more than 20 deg from -162.1028 while leakage <=0.2 and ratio >=6.
+fail_boundary,[],The selected capsule points did not show a phase-motion failure boundary; all six remained early-pass.
+best_selectivity_point,cpk_capsule_res_h425_01,"phase=-157.6913, target=0.9125, leakage=0.0149, ratio=61.124; strongest selectivity but covered -180."
+largest_phase_motion_point,cpk_capsule_res_h435_01,"phase=-148.7845, motion=13.3183 deg from h420 anchor, target=0.9170, leakage=0.0698, ratio=13.1346; nearest covered -120."
+updated_early_pass_bins,"[-180, -120, -60, 120]",All new early-pass capsule results landed in already covered -180 or -120 bins.
+remaining_missing_bins,"[0, 60]",No 0 or 60 bin opened.
+decision,Capsule/racetrack branch validates a high-selectivity covered-bin family but is too phase-stiff for 0/60 in this first continuation.,Height and anisotropy trims produce only slow phase drift; scale98 returns deeper toward -180.
