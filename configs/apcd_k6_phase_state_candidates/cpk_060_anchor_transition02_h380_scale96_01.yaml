@@ -1,0 +1,87 @@
+project:
+  name: blue_plane_wave_metasurface
+  stage: 09_p119_0_60_anchor_discovery_fdtd
+candidate:
+  variant_id: cpk_060_anchor_transition02_h380_scale96_01
+  candidate_type: transition02_mild_common_geometry_trim
+  scheme_name: resphase_core_preserve_anchor_discovery
+  description: 09-P119 transition02 h380 scale96 mild trim anchor for 0/60 search
+  target_bins_deg: 0/60
+  source_stage: 09-P119
+  result_stage: 09-P120
+  anchor_candidate: cpk_mbin_transition_02
+  helper_role: weak_auxiliary_phase_helper
+  risk_level: medium
+  expected_phase_direction: discover high-selectivity transition02-derived resonance branch for remaining 0/60 bins
+  design_rationale: Applies scale96 and h380 around the transition_02 high-selectivity reference without using lower-transition repeats or common rotation.
+  source_plan_csv: outputs/apcd_k6_active_learning/combined_phase_knob_p119_0_60_anchor_discovery_plan.csv
+  source_selection_csv: outputs/apcd_k6_active_learning/combined_phase_knob_p119_0_60_anchor_discovery_selection.csv
+  source_coverage_csv: outputs/apcd_k6_active_learning/combined_phase_knob_phase_state_coverage_p117.csv
+  notes: Stage 09 anchor-discovery candidate; not K=6 phase-ramp, not steering, and not a complete phase-state library claim.
+boundary:
+  no_k7: true
+  not_phase_ramp_supercell: true
+  not_steering_result: true
+  not_complete_k6_library_claim: true
+  not_alt_htrans04_continuation: true
+  not_pure_helper_shape_sweep: true
+  not_stronger_common_rotation_phase_pulling: true
+target:
+  wavelength_nm: 633
+  incident_wave: plane_wave
+  output_basis: alpha_beta
+  target_polarization_type: elliptical
+  psi_deg: 112.5
+  chi_deg: 22.5
+  eps: 1.0e-12
+  spin_er_threshold_db: 8
+  conversion_to_leakage_threshold: 6
+material:
+  substrate: Al2O3
+  meta_material: c-Si
+  substrate_material_lumerical: <Object defined dielectric>
+  meta_material_lumerical: <Object defined dielectric>
+  substrate_index: 1.76
+  meta_index: 3.88
+geometry:
+  layout_mode: manual_absolute
+  period_x_nm: 340
+  period_y_nm: 340
+  height_nm: 380
+  minimum_gap_nm: 50
+  nanopillar_1:
+    length_nm: 124.8
+    width_nm: 67.2
+    rotation_deg: 67.5
+    x_nm: 85.0
+    y_nm: 85.0
+    frac_x: 0.75
+    frac_y: 0.75
+  nanopillar_2:
+    length_nm: 81.6
+    width_nm: 144
+    rotation_deg: 112.5
+    x_nm: -85.0
+    y_nm: -85.0
+    frac_x: 0.25
+    frac_y: 0.25
+  nanopillar_helper:
+    role: weak_auxiliary_phase_helper
+    helper_role: weak_auxiliary_phase_helper
+    shape: weak rectangular nanofin helper
+    length_nm: 70
+    width_nm: 120
+    rotation_deg: 135
+    x_nm: -85
+    y_nm: 85
+    frac_x: 0.25
+    frac_y: 0.75
+simulation:
+  substrate_thickness_nm: 220
+  source_offset_nm: 120
+  monitor_offset_nm: 180
+  z_padding_above_nm: 260
+  mesh_accuracy: 1
+  simulation_time_fs: 250
+output:
+  result_dir: outputs/apcd_k6_metagrating_633nm/phase_state_candidates/cpk_060_anchor_transition02_h380_scale96_01

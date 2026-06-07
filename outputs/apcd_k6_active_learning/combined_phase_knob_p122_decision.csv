@@ -1,0 +1,9 @@
+decision_item,value,evidence
+stage,09-P122,P120 ran exactly six P119 anchor-discovery candidates.
+opened_bins,[],"No P120 candidate had nearest bin in [0, 60] with early_pass=True."
+useful_anchors,[],"No P120 candidate was within 30 deg of [0, 60] with leakage <=0.2 and ratio >=6."
+phase_hit_failed,[],"No P120 candidate was phase-near [0, 60]; failures were covered-bin returns rather than 0/60 phase hits."
+updated_early_pass_bins,"[-180, -120, -60, 120]",Early-pass P120 candidates reinforced covered -120 or -180 bins only.
+remaining_missing_bins,"[0, 60]",No 0 or 60 bin opened.
+best_selectivity_anchor,cpk_060_anchor_wh03_h425_scale98_01,"phase=-120.0309, target=0.9142, leakage=0.0886, ratio=10.3229; excellent covered-bin reference, not 0/60."
+decision,P119 candidates did not discover a 0/60 anchor; pivot to a different physics knob or new core-preserving family while staying in stage 09.,"No selected family produced phase-near [0,60]; no-helper and wh03/htrans04/transition02 references returned to -120/-180 basins."

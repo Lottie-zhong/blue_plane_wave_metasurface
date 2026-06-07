@@ -1,0 +1,7 @@
+selection_rank,candidate_id,family,target_bins_deg,height_nm,period_x_nm,period_y_nm,run_next,selection_reason,status
+1,cpk_060_anchor_nohelper_h420_01,nohelper_fixed_core_height_anchor,0/60,420,340,340,yes,Clean fixed-core no-helper height anchor, not derived from alt_htrans04.,selected_not_run
+2,cpk_060_anchor_nohelper_h430_scale96_01,nohelper_fixed_core_size_anchor,0/60,430,340,340,yes,No-helper h430 scale96 checks size resonance without helper leakage.,selected_not_run
+3,cpk_060_anchor_wh03_h430_trim_m5_01,wh03_alternative_geometry_anchor,0/60,430,340,340,yes,wh03 high-selectivity trim at h430 tests a non-alt weak-helper anchor.,selected_not_run
+4,cpk_060_anchor_wh03_h425_scale98_01,wh03_mild_common_geometry_trim,0/60,425,340,340,yes,wh03 h425 scale98 is a mild common geometry trim around a high-selectivity reference.,selected_not_run
+5,cpk_060_anchor_htrans04_h410_nohelper_01,htrans04_alternative_nohelper_anchor,0/60,410,340,340,yes,htrans04 reference with helper removed tests an alternative core-preserving resonance branch.,selected_not_run
+6,cpk_060_anchor_transition02_h380_scale96_01,transition02_mild_common_geometry_trim,0/60,380,340,340,yes,transition_02 scale96 probes a distinct high-selectivity reference branch.,selected_not_run
