@@ -70,6 +70,9 @@ class APCDNanopillarConfig:
     shape: str = "rectangle"
     corner_radius_nm: float | None = None
     chamfer_nm: float | None = None
+    notch_depth_nm: float | None = None
+    notch_width_nm: float | None = None
+    notch_side: str | None = None
     polygon_sides: int = 32
 
 
@@ -337,6 +340,9 @@ def _load_apcd_nanopillar(
         shape=str(pillar_data.get("shape", "rectangle")),
         corner_radius_nm=_optional_float(pillar_data.get("corner_radius_nm")),
         chamfer_nm=_optional_float(pillar_data.get("chamfer_nm")),
+        notch_depth_nm=_optional_float(pillar_data.get("notch_depth_nm")),
+        notch_width_nm=_optional_float(pillar_data.get("notch_width_nm")),
+        notch_side=_optional_str(pillar_data.get("notch_side")),
         polygon_sides=int(pillar_data.get("polygon_sides", 32)),
     )
 

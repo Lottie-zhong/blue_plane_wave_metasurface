@@ -1,0 +1,11 @@
+decision_item,value,evidence
+stage,09-P134,P132 ran exactly six selected P131 orthogonal phase-knob candidates.
+opened_bins,[],"No P132 candidate had nearest bin in [0, 60] with early_pass=True."
+useful_anchors,[],"No P132 candidate was within 30 deg of [0, 60] with leakage <=0.2 and ratio >=6."
+phase_hit_failed,[],"No P132 candidate was phase-near [0, 60]; failures stayed near covered -120."
+best_selective_new_knob,cpk_orth_notch_p1_right_h425_01,"phase=-149.2261, target=0.8670, leakage=0.0771, ratio=11.2431; early-pass but covered -120."
+best_phase_motion_failed_selectivity,cpk_orth_mixed_rect_round_h430_01,"phase=-123.9242, nearest -120, target=0.8992, leakage=0.3525, ratio=2.5510; not near 0/60 and selectivity failed."
+hollow_ring_status,deferred_not_run,Current single-pillar config lacks robust internal-hole or boolean air-region support; no hollow/ring result was claimed.
+updated_early_pass_bins,"[-180, -120, -60, 120]",The only new early-pass candidate landed in already covered -120.
+remaining_missing_bins,"[0, 60]",No 0 or 60 bin opened.
+decision,Mixed-shape and weak-scalar co-design knobs move phase only toward the covered -120 basin and usually break selectivity; mild notch preserves selectivity but remains far from 0/60.,P132 compact results show no 0/60 useful anchor and no phase-hit failed case.

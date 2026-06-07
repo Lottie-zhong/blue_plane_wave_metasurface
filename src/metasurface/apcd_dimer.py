@@ -597,9 +597,22 @@ def _normalized_pillar_shape(pillar: APCDNanopillarConfig) -> str:
         "elliptical": "ellipse",
         "chamfered": "chamfered_rectangle",
         "chamfered_rect": "chamfered_rectangle",
+        "notch": "notched_rectangle",
+        "notched": "notched_rectangle",
+        "notched_rect": "notched_rectangle",
+        "slot": "notched_rectangle",
+        "slotted_rectangle": "notched_rectangle",
+        "slotted_rect": "notched_rectangle",
     }
     shape = aliases.get(shape, shape)
-    supported = {"rectangle", "ellipse", "rounded_rectangle", "capsule", "chamfered_rectangle"}
+    supported = {
+        "rectangle",
+        "ellipse",
+        "rounded_rectangle",
+        "capsule",
+        "chamfered_rectangle",
+        "notched_rectangle",
+    }
     if shape not in supported:
         raise ValueError(f"Unsupported APCD nanopillar shape: {pillar.shape}")
     return shape
@@ -627,6 +640,24 @@ def _local_pillar_polygon_nm(pillar: APCDNanopillarConfig) -> list[tuple[float, 
             limit=min(pillar.length_nm, pillar.width_nm) / 2,
         )
         return _local_chamfered_rectangle_polygon_nm(pillar.length_nm, pillar.width_nm, chamfer)
+    if shape == "notched_rectangle":
+        depth = _bounded_shape_distance(
+            pillar.notch_depth_nm,
+            default=min(pillar.length_nm, pillar.width_nm) * 0.12,
+            limit=pillar.length_nm / 3,
+        )
+        notch_width = _bounded_shape_distance(
+            pillar.notch_width_nm,
+            default=pillar.width_nm * 0.35,
+            limit=pillar.width_nm * 0.8,
+        )
+        return _local_notched_rectangle_polygon_nm(
+            pillar.length_nm,
+            pillar.width_nm,
+            depth,
+            notch_width,
+            pillar.notch_side,
+        )
     raise ValueError(f"Unsupported APCD nanopillar shape: {pillar.shape}")
 
 
@@ -726,6 +757,67 @@ def _local_chamfered_rectangle_polygon_nm(
         (-half_length, half_width - chamfer),
         (-half_length, -half_width + chamfer),
     ]
+
+
+def _local_notched_rectangle_polygon_nm(
+    length_nm: float,
+    width_nm: float,
+    notch_depth_nm: float,
+    notch_width_nm: float,
+    notch_side: str | None,
+) -> list[tuple[float, float]]:
+    half_length = length_nm / 2
+    half_width = width_nm / 2
+    depth = max(0.0, min(notch_depth_nm, length_nm / 3))
+    notch_half_width = max(0.0, min(notch_width_nm / 2, half_width * 0.8))
+    side = "right" if notch_side is None else str(notch_side).strip().lower()
+    if depth <= 0 or notch_half_width <= 0:
+        return _local_rectangle_corners_nm(length_nm, width_nm)
+    if side in {"right", "+x", "x+"}:
+        return [
+            (-half_length, -half_width),
+            (half_length, -half_width),
+            (half_length, -notch_half_width),
+            (half_length - depth, -notch_half_width),
+            (half_length - depth, notch_half_width),
+            (half_length, notch_half_width),
+            (half_length, half_width),
+            (-half_length, half_width),
+        ]
+    if side in {"left", "-x", "x-"}:
+        return [
+            (-half_length, -half_width),
+            (half_length, -half_width),
+            (half_length, half_width),
+            (-half_length, half_width),
+            (-half_length, notch_half_width),
+            (-half_length + depth, notch_half_width),
+            (-half_length + depth, -notch_half_width),
+            (-half_length, -notch_half_width),
+        ]
+    if side in {"top", "+y", "y+"}:
+        return [
+            (-half_length, -half_width),
+            (half_length, -half_width),
+            (half_length, half_width),
+            (notch_half_width, half_width),
+            (notch_half_width, half_width - depth),
+            (-notch_half_width, half_width - depth),
+            (-notch_half_width, half_width),
+            (-half_length, half_width),
+        ]
+    if side in {"bottom", "-y", "y-"}:
+        return [
+            (-half_length, -half_width),
+            (-notch_half_width, -half_width),
+            (-notch_half_width, -half_width + depth),
+            (notch_half_width, -half_width + depth),
+            (notch_half_width, -half_width),
+            (half_length, -half_width),
+            (half_length, half_width),
+            (-half_length, half_width),
+        ]
+    raise ValueError(f"Unsupported notch_side: {notch_side}")
 
 
 def _bounded_shape_distance(value: float | None, *, default: float, limit: float) -> float:

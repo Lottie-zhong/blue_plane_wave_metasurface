@@ -456,6 +456,36 @@ def test_apcd_shape_aware_core_uses_polygon_setup(tmp_path: Path) -> None:
     assert len(lumapi.fdtds[0].polygon_vertices[0]) >= 16
 
 
+def test_apcd_notched_core_uses_concave_polygon_setup(tmp_path: Path) -> None:
+    config = load_apcd_single_dimer_config(REPO_ROOT / "configs" / "apcd_single_dimer_633nm.yaml")
+    shaped_geometry = replace(
+        config.geometry,
+        nanopillar_1=replace(
+            config.geometry.nanopillar_1,
+            shape="notched_rectangle",
+            notch_depth_nm=10,
+            notch_width_nm=35,
+            notch_side="right",
+        ),
+    )
+    shaped_config = replace(config, geometry=shaped_geometry)
+    runtime = RuntimeConfig(mode="test", enable_lumerical=True, lumapi_python_api_dir="", hide_gui=True)
+    lumapi = _FakeLumapi()
+
+    row = run_apcd_single_dimer_setup_only(
+        config=shaped_config,
+        runtime=runtime,
+        lumapi=lumapi,
+        fsp_output=tmp_path / "notched_shape.fsp",
+    )
+
+    assert row["status"] == "setup_only"
+    assert lumapi.fdtds[0].addpoly_count == 1
+    assert lumapi.fdtds[0].addrect_count == 2
+    assert len(lumapi.fdtds[0].polygon_vertices) == 1
+    assert len(lumapi.fdtds[0].polygon_vertices[0]) == 8
+
+
 class _FakeLumapi:
     def __init__(self) -> None:
         self.fdtds: list[_FakeFDTD] = []
