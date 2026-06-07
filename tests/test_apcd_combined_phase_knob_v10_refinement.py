@@ -117,3 +117,4 @@ def test_v10_refinement_report_scope_and_naming() -> None:
     assert "no complete K=6 phase-state library claim" in text
     assert "stage 10" not in text.lower()
     assert "task 10" not in text.lower()
+
