@@ -8,6 +8,8 @@ from pathlib import Path
 from types import ModuleType
 from typing import Optional, Union
 
+import numpy as np
+
 from metasurface.config import (
     APCDDimerMaterialConfig,
     APCDNanopillarConfig,
@@ -481,12 +483,19 @@ def _add_nanopillar(
     name: str,
 ) -> None:
     nm = 1e-9
-    fdtd.addrect()
+    shape = _normalized_pillar_shape(pillar)
+    if shape == "rectangle":
+        fdtd.addrect()
+    else:
+        fdtd.addpoly()
     fdtd.set("name", name)
     fdtd.set("x", pillar.x_nm * nm)
     fdtd.set("y", pillar.y_nm * nm)
-    fdtd.set("x span", pillar.length_nm * nm)
-    fdtd.set("y span", pillar.width_nm * nm)
+    if shape == "rectangle":
+        fdtd.set("x span", pillar.length_nm * nm)
+        fdtd.set("y span", pillar.width_nm * nm)
+    else:
+        fdtd.set("vertices", np.array([[x * nm, y * nm] for x, y in _local_pillar_polygon_nm(pillar)], dtype=float))
     fdtd.set("z min", 0)
     fdtd.set("z max", config.geometry.height_nm * nm)
     fdtd.set("first axis", "z")
@@ -496,7 +505,7 @@ def _add_nanopillar(
 
 def validate_apcd_single_dimer_geometry(config: APCDSingleDimerConfig) -> APCDGeometryValidation:
     geometry = config.geometry
-    polygons = {name: _rotated_rectangle_corners_nm(pillar) for name, pillar in _apcd_nanopillars(config)}
+    polygons = {name: _pillar_polygon_nm(pillar) for name, pillar in _apcd_nanopillars(config)}
 
     same_cell_gap_nm = math.inf
     same_cell_pair = ""
@@ -569,18 +578,170 @@ def _periodic_neighbor_shifts_nm(period_x_nm: float, period_y_nm: float) -> list
 
 
 def _rotated_rectangle_corners_nm(pillar: APCDNanopillarConfig) -> list[tuple[float, float]]:
-    angle = math.radians(pillar.rotation_deg)
-    cos_angle = math.cos(angle)
-    sin_angle = math.sin(angle)
-    half_length = pillar.length_nm / 2
-    half_width = pillar.width_nm / 2
-    corners = []
-    for local_x, local_y in (
+    return _rotate_and_translate_polygon_nm(pillar, _local_rectangle_corners_nm(pillar.length_nm, pillar.width_nm))
+
+
+def _pillar_polygon_nm(pillar: APCDNanopillarConfig) -> list[tuple[float, float]]:
+    return _rotate_and_translate_polygon_nm(pillar, _local_pillar_polygon_nm(pillar))
+
+
+def _normalized_pillar_shape(pillar: APCDNanopillarConfig) -> str:
+    shape = str(getattr(pillar, "shape", "rectangle")).strip().lower().replace("-", "_")
+    aliases = {
+        "rect": "rectangle",
+        "rounded": "rounded_rectangle",
+        "rounded_rect": "rounded_rectangle",
+        "racetrack": "capsule",
+        "capsule_core": "capsule",
+        "ellipse_core": "ellipse",
+        "elliptical": "ellipse",
+        "chamfered": "chamfered_rectangle",
+        "chamfered_rect": "chamfered_rectangle",
+    }
+    shape = aliases.get(shape, shape)
+    supported = {"rectangle", "ellipse", "rounded_rectangle", "capsule", "chamfered_rectangle"}
+    if shape not in supported:
+        raise ValueError(f"Unsupported APCD nanopillar shape: {pillar.shape}")
+    return shape
+
+
+def _local_pillar_polygon_nm(pillar: APCDNanopillarConfig) -> list[tuple[float, float]]:
+    shape = _normalized_pillar_shape(pillar)
+    if shape == "rectangle":
+        return _local_rectangle_corners_nm(pillar.length_nm, pillar.width_nm)
+    if shape == "ellipse":
+        return _local_ellipse_polygon_nm(pillar.length_nm, pillar.width_nm, pillar.polygon_sides)
+    if shape == "rounded_rectangle":
+        radius = _bounded_shape_distance(
+            pillar.corner_radius_nm,
+            default=min(pillar.length_nm, pillar.width_nm) * 0.18,
+            limit=min(pillar.length_nm, pillar.width_nm) / 2,
+        )
+        return _local_rounded_rectangle_polygon_nm(pillar.length_nm, pillar.width_nm, radius, pillar.polygon_sides)
+    if shape == "capsule":
+        return _local_capsule_polygon_nm(pillar.length_nm, pillar.width_nm, pillar.polygon_sides)
+    if shape == "chamfered_rectangle":
+        chamfer = _bounded_shape_distance(
+            pillar.chamfer_nm,
+            default=min(pillar.length_nm, pillar.width_nm) * 0.12,
+            limit=min(pillar.length_nm, pillar.width_nm) / 2,
+        )
+        return _local_chamfered_rectangle_polygon_nm(pillar.length_nm, pillar.width_nm, chamfer)
+    raise ValueError(f"Unsupported APCD nanopillar shape: {pillar.shape}")
+
+
+def _local_rectangle_corners_nm(length_nm: float, width_nm: float) -> list[tuple[float, float]]:
+    half_length = length_nm / 2
+    half_width = width_nm / 2
+    return [
         (-half_length, -half_width),
         (half_length, -half_width),
         (half_length, half_width),
         (-half_length, half_width),
-    ):
+    ]
+
+
+def _local_ellipse_polygon_nm(length_nm: float, width_nm: float, polygon_sides: int) -> list[tuple[float, float]]:
+    sides = max(16, int(polygon_sides))
+    half_length = length_nm / 2
+    half_width = width_nm / 2
+    return [
+        (
+            half_length * math.cos(2 * math.pi * index / sides),
+            half_width * math.sin(2 * math.pi * index / sides),
+        )
+        for index in range(sides)
+    ]
+
+
+def _local_rounded_rectangle_polygon_nm(
+    length_nm: float,
+    width_nm: float,
+    radius_nm: float,
+    polygon_sides: int,
+) -> list[tuple[float, float]]:
+    half_length = length_nm / 2
+    half_width = width_nm / 2
+    radius = max(0.0, min(radius_nm, half_length, half_width))
+    if radius <= 0:
+        return _local_rectangle_corners_nm(length_nm, width_nm)
+    arc_steps = max(4, int(polygon_sides) // 8)
+    centers = [
+        (half_length - radius, half_width - radius, 0.0),
+        (-(half_length - radius), half_width - radius, math.pi / 2),
+        (-(half_length - radius), -(half_width - radius), math.pi),
+        (half_length - radius, -(half_width - radius), 3 * math.pi / 2),
+    ]
+    points: list[tuple[float, float]] = []
+    for cx, cy, start in centers:
+        for step in range(arc_steps + 1):
+            angle = start + step * (math.pi / 2) / arc_steps
+            points.append((cx + radius * math.cos(angle), cy + radius * math.sin(angle)))
+    return points
+
+
+def _local_capsule_polygon_nm(length_nm: float, width_nm: float, polygon_sides: int) -> list[tuple[float, float]]:
+    sides = max(16, int(polygon_sides))
+    points: list[tuple[float, float]] = []
+    if length_nm >= width_nm:
+        radius = width_nm / 2
+        center_offset = max(0.0, length_nm / 2 - radius)
+        half_steps = max(8, sides // 2)
+        for step in range(half_steps + 1):
+            angle = -math.pi / 2 + step * math.pi / half_steps
+            points.append((center_offset + radius * math.cos(angle), radius * math.sin(angle)))
+        for step in range(half_steps + 1):
+            angle = math.pi / 2 + step * math.pi / half_steps
+            points.append((-center_offset + radius * math.cos(angle), radius * math.sin(angle)))
+    else:
+        radius = length_nm / 2
+        center_offset = max(0.0, width_nm / 2 - radius)
+        half_steps = max(8, sides // 2)
+        for step in range(half_steps + 1):
+            angle = step * math.pi / half_steps
+            points.append((radius * math.cos(angle), center_offset + radius * math.sin(angle)))
+        for step in range(half_steps + 1):
+            angle = math.pi + step * math.pi / half_steps
+            points.append((radius * math.cos(angle), -center_offset + radius * math.sin(angle)))
+    return points
+
+
+def _local_chamfered_rectangle_polygon_nm(
+    length_nm: float,
+    width_nm: float,
+    chamfer_nm: float,
+) -> list[tuple[float, float]]:
+    half_length = length_nm / 2
+    half_width = width_nm / 2
+    chamfer = max(0.0, min(chamfer_nm, half_length, half_width))
+    if chamfer <= 0:
+        return _local_rectangle_corners_nm(length_nm, width_nm)
+    return [
+        (-half_length + chamfer, -half_width),
+        (half_length - chamfer, -half_width),
+        (half_length, -half_width + chamfer),
+        (half_length, half_width - chamfer),
+        (half_length - chamfer, half_width),
+        (-half_length + chamfer, half_width),
+        (-half_length, half_width - chamfer),
+        (-half_length, -half_width + chamfer),
+    ]
+
+
+def _bounded_shape_distance(value: float | None, *, default: float, limit: float) -> float:
+    selected = default if value is None else float(value)
+    return max(0.0, min(selected, limit))
+
+
+def _rotate_and_translate_polygon_nm(
+    pillar: APCDNanopillarConfig,
+    local_polygon: list[tuple[float, float]],
+) -> list[tuple[float, float]]:
+    angle = math.radians(pillar.rotation_deg)
+    cos_angle = math.cos(angle)
+    sin_angle = math.sin(angle)
+    corners = []
+    for local_x, local_y in local_polygon:
         corners.append(
             (
                 pillar.x_nm + local_x * cos_angle - local_y * sin_angle,

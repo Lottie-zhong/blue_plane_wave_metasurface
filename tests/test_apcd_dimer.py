@@ -431,6 +431,31 @@ def test_apcd_single_dimer_setup_only_does_not_save_invalid_geometry(tmp_path: P
     assert lumapi.fdtds[0].run_called is False
 
 
+def test_apcd_shape_aware_core_uses_polygon_setup(tmp_path: Path) -> None:
+    config = load_apcd_single_dimer_config(REPO_ROOT / "configs" / "apcd_single_dimer_633nm.yaml")
+    shaped_geometry = replace(
+        config.geometry,
+        nanopillar_1=replace(config.geometry.nanopillar_1, shape="ellipse", polygon_sides=24),
+        nanopillar_2=replace(config.geometry.nanopillar_2, shape="capsule", polygon_sides=24),
+    )
+    shaped_config = replace(config, geometry=shaped_geometry)
+    runtime = RuntimeConfig(mode="test", enable_lumerical=True, lumapi_python_api_dir="", hide_gui=True)
+    lumapi = _FakeLumapi()
+
+    row = run_apcd_single_dimer_setup_only(
+        config=shaped_config,
+        runtime=runtime,
+        lumapi=lumapi,
+        fsp_output=tmp_path / "shape_aware.fsp",
+    )
+
+    assert row["status"] == "setup_only"
+    assert lumapi.fdtds[0].addpoly_count == 2
+    assert lumapi.fdtds[0].addrect_count == 1
+    assert len(lumapi.fdtds[0].polygon_vertices) == 2
+    assert len(lumapi.fdtds[0].polygon_vertices[0]) >= 16
+
+
 class _FakeLumapi:
     def __init__(self) -> None:
         self.fdtds: list[_FakeFDTD] = []
@@ -456,6 +481,9 @@ class _FakeFDTD:
         self.rotations: list[float] = []
         self.events: list[str] = []
         self._current_object = ""
+        self.addrect_count = 0
+        self.addpoly_count = 0
+        self.polygon_vertices: list[object] = []
 
     def switchtolayout(self) -> None:
         self.events.append("switchtolayout")
@@ -468,6 +496,11 @@ class _FakeFDTD:
 
     def addrect(self) -> None:
         self._current_object = "rect"
+        self.addrect_count += 1
+
+    def addpoly(self) -> None:
+        self._current_object = "poly"
+        self.addpoly_count += 1
 
     def addplane(self) -> None:
         self._current_object = "plane"
@@ -480,6 +513,10 @@ class _FakeFDTD:
 
     def set(self, name: str, value: object) -> None:
         if self._current_object == "rect" and name == "rotation 1":
+            self.rotations.append(float(value))
+        if self._current_object == "poly" and name == "vertices":
+            self.polygon_vertices.append(value)
+        if self._current_object == "poly" and name == "rotation 1":
             self.rotations.append(float(value))
         if self._current_object == "plane" and name == "polarization angle":
             self.source_angles.append(float(value))

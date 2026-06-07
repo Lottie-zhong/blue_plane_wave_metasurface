@@ -1,0 +1,7 @@
+selection_rank,candidate_id,family,target_bins_deg,height_nm,period_x_nm,period_y_nm,run_next,selection_reason,status
+1,cpk_060_geom_round_h420_r12_01,rounded_rectangle_apcd_core,0/60,420,340,340,yes,Rounded rectangle core edge-softening at h420; new geometry family.,selected_not_run
+2,cpk_060_geom_ellipse_h420_01,elliptical_apcd_core,0/60,420,340,340,yes,Elliptical APCD core tests smooth anisotropic resonance with fixed rotations.,selected_not_run
+3,cpk_060_geom_capsule_h420_01,capsule_racetrack_apcd_core,0/60,420,340,340,yes,Capsule/racetrack core tests semicircular endcaps while preserving alpha-pass logic.,selected_not_run
+4,cpk_060_geom_chamfer_h425_c10_01,chamfered_rectangle_apcd_core,0/60,425,340,340,yes,Chamfered rectangle at h425 tests corner-removal phase response.,selected_not_run
+5,cpk_060_geom_round_h430_r16_01,rounded_rectangle_apcd_core,0/60,430,340,340,yes,H430 rounded-core point checks phase branch without forcing alt_htrans04 scale/aniso.,selected_not_run
+6,cpk_060_geom_ellipse_h425_scalar55_01,ellipse_core_weak_scalar_bias,0/60,425,340,340,yes,One weak scalar resonator bias on ellipse core; not a helper-shape sweep.,selected_not_run

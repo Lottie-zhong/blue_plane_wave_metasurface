@@ -67,6 +67,10 @@ class APCDNanopillarConfig:
     frac_y: float | None = None
     rotation_rule: str | None = None
     role: str | None = None
+    shape: str = "rectangle"
+    corner_radius_nm: float | None = None
+    chamfer_nm: float | None = None
+    polygon_sides: int = 32
 
 
 @dataclass(frozen=True)
@@ -330,6 +334,10 @@ def _load_apcd_nanopillar(
         frac_y=frac_y,
         rotation_rule=None if rotation_rule is None else str(rotation_rule),
         role=_optional_str(pillar_data.get("role", pillar_data.get("helper_role"))),
+        shape=str(pillar_data.get("shape", "rectangle")),
+        corner_radius_nm=_optional_float(pillar_data.get("corner_radius_nm")),
+        chamfer_nm=_optional_float(pillar_data.get("chamfer_nm")),
+        polygon_sides=int(pillar_data.get("polygon_sides", 32)),
     )
 
 
