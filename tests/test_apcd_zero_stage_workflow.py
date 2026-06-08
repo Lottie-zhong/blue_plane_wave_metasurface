@@ -45,6 +45,16 @@ def p170():
     return load_script("manual_p170_summarize_integer_zero_recovery.py")
 
 
+@pytest.fixture(scope="module")
+def p173():
+    return load_script("manual_p173_generate_fixed_h233_resonance_phase_candidates.py")
+
+
+@pytest.fixture(scope="module")
+def p174():
+    return load_script("manual_p174_summarize_fixed_h233_resonance_phase.py")
+
+
 def test_p164_phase_bin_and_zero_open_logic(p164, tmp_path) -> None:
     result_csv = tmp_path / "results.csv"
     raw = {
@@ -222,3 +232,128 @@ def test_p170_missing_results_do_not_crash(p170, tmp_path) -> None:
     assert rows[0]["early_pass"] is False
     assert rows[0]["opens_0"] is False
     assert any(row["decision_key"] == "official_height_nm" and row["decision_value"] == 232 for row in decisions)
+
+
+def test_p173_candidate_specs_are_fixed_h233_integer_and_limited(p173) -> None:
+    no_notch = p173.build_candidate_specs(notch_supported=False)
+    with_notch = p173.build_candidate_specs(notch_supported=True)
+    requested_core = {
+        "cpk_zero_l60_h233_p1geom120x58_p2geom74x135_01",
+        "cpk_zero_l60_h233_p1geom120x58_p2geom76x135_01",
+        "cpk_zero_l60_h233_p1geom120x58_p2geom75x134_01",
+        "cpk_zero_l60_h233_p1geom120x58_p2geom75x136_01",
+        "cpk_zero_l60_h233_p1geom120x58_p2geom74x134_01",
+        "cpk_zero_l60_h233_p1geom120x58_p2geom76x136_01",
+        "cpk_zero_l60_h233_p1geom119x58_01",
+        "cpk_zero_l60_h233_p1geom118x58_01",
+        "cpk_zero_l60_h233_p1geom120x57_01",
+    }
+
+    assert len(no_notch) == 9
+    assert len(with_notch) == 12
+    assert len(with_notch) <= 12
+    assert requested_core.issubset({spec.candidate_id for spec in with_notch})
+    assert any(spec.p1_shape == "notched_rectangle" for spec in with_notch)
+    assert any(spec.p2_shape == "notched_rectangle" for spec in with_notch)
+    for spec in with_notch:
+        assert isinstance(spec.p1_length_nm, int)
+        assert isinstance(spec.p1_width_nm, int)
+        assert isinstance(spec.p2_length_nm, int)
+        assert isinstance(spec.p2_width_nm, int)
+        if spec.p1_notch_depth_nm is not None:
+            assert isinstance(spec.p1_notch_depth_nm, int)
+        if spec.p2_notch_depth_nm is not None:
+            assert isinstance(spec.p2_notch_depth_nm, int)
+
+
+def test_p173_generated_config_fixes_h233_and_p2_geometry(p173) -> None:
+    spec = p173.CandidateSpec(
+        candidate_id="cpk_zero_h233_unit",
+        group="A",
+        family="p2_dynamic_resonance_phase_scan",
+        p1_length_nm=120,
+        p1_width_nm=58,
+        p2_length_nm=74,
+        p2_width_nm=134,
+        rationale="unit",
+    )
+    anchor = {
+        "project": {"name": "blue_plane_wave_metasurface", "stage": "old"},
+        "geometry": {
+            "period_x_nm": 340,
+            "period_y_nm": 340,
+            "height_nm": 300,
+            "nanopillar_1": {"length_nm": 115, "width_nm": 55, "rotation_deg": 67.5},
+            "nanopillar_2": {"length_nm": 75, "width_nm": 135, "rotation_deg": 112.5},
+        },
+        "output": {"result_dir": "old"},
+    }
+
+    config = p173.build_candidate_config(anchor, spec)
+    row = p173.plan_row(spec, Path("configs/apcd_k6_phase_state_candidates/cpk_zero_h233_unit.yaml"))
+    p173.assert_integer_geometry([row])
+
+    assert config["project"]["stage"] == "09_p173_fixed_h233_resonance_phase_candidate_yaml_only"
+    assert config["geometry"]["height_nm"] == 233
+    assert isinstance(config["geometry"]["height_nm"], int)
+    assert config["geometry"]["nanopillar_1"]["length_nm"] == 120
+    assert config["geometry"]["nanopillar_1"]["width_nm"] == 58
+    assert config["geometry"]["nanopillar_2"]["length_nm"] == 74
+    assert config["geometry"]["nanopillar_2"]["width_nm"] == 134
+    assert config["boundary"]["fixed_height_nm"] == 233
+    assert config["boundary"]["no_fdtd_run_by_generator"] is True
+
+
+def test_p174_missing_results_do_not_crash_and_defer_decision(p174, tmp_path) -> None:
+    plan = [
+        {
+            "candidate_id": "cpk_zero_h233_missing",
+            "group": "A",
+            "family": "p2_dynamic_resonance_phase_scan",
+        }
+    ]
+
+    rows = p174.summarize_plan_results(plan, tmp_path)
+    decisions = p174.build_decision_rows(rows)
+
+    assert rows[0]["result_status"] == "missing_result"
+    assert rows[0]["early_pass"] is False
+    assert rows[0]["opens_0"] is False
+    assert any(row["decision_key"] == "official_height_nm" and row["decision_value"] == 233 for row in decisions)
+    assert any(
+        row["decision_key"] == "final_decision" and row["decision_value"] == "run_missing_real_fdtd_on_server"
+        for row in decisions
+    )
+
+
+def test_p174_decision_logic_opens_and_continue(p174) -> None:
+    opened = [
+        {
+            "candidate_id": "cpk_open",
+            "result_status": "ok",
+            "opens_0": True,
+            "early_pass": True,
+            "err_to_30_boundary": 20.0,
+            "err_to_0": 10.0,
+        }
+    ]
+    continued = [
+        {
+            "candidate_id": "cpk_continue",
+            "result_status": "ok",
+            "opens_0": False,
+            "early_pass": True,
+            "err_to_30_boundary": 3.0,
+            "err_to_0": 33.0,
+        }
+    ]
+
+    opened_decisions = p174.build_decision_rows(opened)
+    continued_decisions = p174.build_decision_rows(continued)
+
+    assert any(row["decision_key"] == "final_decision" and row["decision_value"] == "0_bin_opened" for row in opened_decisions)
+    assert any(
+        row["decision_key"] == "final_decision"
+        and row["decision_value"] == "continue_fixed_h233_resonance_scan"
+        for row in continued_decisions
+    )

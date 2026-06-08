@@ -1,0 +1,8 @@
+decision_key,decision_value,notes
+stage,09-P175,Stage 09 fixed-h233 resonance-phase summary only; no K=6 phase-ramp or steering claim.
+official_height_nm,233,Fabrication-aware official route fixes integer height.
+baseline_phase_deg,36.27,h233 p1geom120x58 baseline supplied by current decision context.
+existing_results_count,0,Candidates with a local result CSV available.
+opens_0_count,0,Counts only nearest_bin=0 with early_pass=true.
+best_early_candidate,,Best early-pass result by distance to 30 deg boundary.
+final_decision,run_missing_real_fdtd_on_server,"No real result CSVs are present, so no mechanism decision is claimed."
