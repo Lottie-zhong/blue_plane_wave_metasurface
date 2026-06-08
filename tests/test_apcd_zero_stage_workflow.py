@@ -55,6 +55,16 @@ def p174():
     return load_script("manual_p174_summarize_fixed_h233_resonance_phase.py")
 
 
+@pytest.fixture(scope="module")
+def p176():
+    return load_script("manual_p176_generate_h232_zero_coupled_recovery_candidates.py")
+
+
+@pytest.fixture(scope="module")
+def p177():
+    return load_script("manual_p177_summarize_h232_zero_coupled_recovery.py")
+
+
 def test_p164_phase_bin_and_zero_open_logic(p164, tmp_path) -> None:
     result_csv = tmp_path / "results.csv"
     raw = {
@@ -356,4 +366,146 @@ def test_p174_decision_logic_opens_and_continue(p174) -> None:
         row["decision_key"] == "final_decision"
         and row["decision_value"] == "continue_fixed_h233_resonance_scan"
         for row in continued_decisions
+    )
+
+
+def test_p176_candidate_generation_is_deterministic_integer_and_fixed_h232(p176) -> None:
+    specs = p176.build_candidate_specs()
+    expected = [
+        "cpk_zero_l60_h232_p1geom120x58_p2geom75x136_01",
+        "cpk_zero_l60_h232_p1geom120x58_p2geom76x136_01",
+        "cpk_zero_l60_h232_p1geom120x58_p2geom76x137_01",
+        "cpk_zero_l60_h232_p1geom120x58_p2geom77x137_01",
+        "cpk_zero_l60_h232_p1geom120x58_p2geom74x136_01",
+        "cpk_zero_l60_h232_p1geom119x58_p2geom76x136_01",
+    ]
+
+    assert [spec.candidate_id for spec in specs] == expected
+    for spec in specs:
+        assert isinstance(spec.p1_length_nm, int)
+        assert isinstance(spec.p1_width_nm, int)
+        assert isinstance(spec.p2_length_nm, int)
+        assert isinstance(spec.p2_width_nm, int)
+
+
+def test_p176_generated_config_validates_min_gap_and_no_overclaim(p176) -> None:
+    anchor = {
+        "project": {"name": "blue_plane_wave_metasurface", "stage": "old"},
+        "candidate": {"variant_id": "anchor"},
+        "geometry": {
+            "layout_mode": "manual_absolute",
+            "period_x_nm": 340,
+            "period_y_nm": 340,
+            "height_nm": 300,
+            "minimum_gap_nm": 5,
+            "nanopillar_1": {
+                "length_nm": 115,
+                "width_nm": 55,
+                "rotation_deg": 67.5,
+                "x_nm": 65,
+                "y_nm": 101,
+                "frac_x": 0.75,
+                "frac_y": 0.75,
+            },
+            "nanopillar_2": {
+                "length_nm": 75,
+                "width_nm": 135,
+                "rotation_deg": 112.5,
+                "x_nm": -65,
+                "y_nm": -101,
+                "frac_x": 0.25,
+                "frac_y": 0.25,
+            },
+        },
+        "output": {"result_dir": "old"},
+    }
+    rows = []
+    for spec in p176.build_candidate_specs():
+        config = p176.build_candidate_config(anchor, spec)
+        gap = p176.validate_min_gap(config)
+        row = p176.plan_row(spec, config, Path(f"configs/{spec.candidate_id}.yaml"), gap)
+        rows.append(row)
+
+        assert config["project"]["stage"] == "09_p176_h232_zero_coupled_recovery_candidate_yaml_only"
+        assert config["geometry"]["height_nm"] == 232
+        assert config["geometry"]["minimum_gap_nm"] == 50
+        assert config["boundary"]["fixed_height_nm"] == 232
+        assert config["boundary"]["minimum_gap_nm_threshold"] == 50.0
+        assert config["boundary"]["no_notch_in_p176_batch"] is True
+        assert "not K=6 phase-ramp" in config["candidate"]["notes"]
+        assert "not steering" in config["candidate"]["notes"]
+        assert "not a Micro-LED result" in config["candidate"]["notes"]
+        assert "not_steering_result" in config["boundary"]
+        assert gap["same_cell_min_gap_nm"] >= 50.0
+        assert gap["periodic_image_min_gap_nm"] >= 50.0
+
+    p176.assert_integer_geometry(rows)
+    assert all(row["geometry_pass"] is True for row in rows)
+
+
+def test_p177_missing_results_do_not_crash_and_defer_decision(p177, tmp_path) -> None:
+    plan = [
+        {
+            "candidate_id": "cpk_zero_h232_missing",
+            "group": "p2_size_up_selection_recovery",
+            "family": "h232_zero_coupled_p2_size_width_recovery",
+        }
+    ]
+
+    rows = p177.summarize_plan_results(plan, tmp_path)
+    decisions = p177.build_decision_rows(rows)
+
+    assert rows[0]["result_status"] == "missing_result"
+    assert rows[0]["early_pass"] is False
+    assert rows[0]["opens_0"] is False
+    assert any(
+        row["decision_key"] == "final_decision" and row["decision_value"] == "run_missing_real_fdtd_on_server"
+        for row in decisions
+    )
+
+
+def test_p177_decision_logic_opens_continue_and_shift(p177) -> None:
+    opened = [
+        {
+            "candidate_id": "cpk_open",
+            "result_status": "ok",
+            "nearest_bin": 0,
+            "opens_0": True,
+            "early_pass": True,
+            "leakage": 0.18,
+        }
+    ]
+    continued = [
+        {
+            "candidate_id": "cpk_continue",
+            "result_status": "ok",
+            "nearest_bin": 0,
+            "opens_0": False,
+            "early_pass": False,
+            "leakage": 0.15,
+        }
+    ]
+    shifted = [
+        {
+            "candidate_id": "cpk_shift",
+            "result_status": "ok",
+            "nearest_bin": 60,
+            "opens_0": False,
+            "early_pass": False,
+            "leakage": 0.25,
+        }
+    ]
+
+    opened_decisions = p177.build_decision_rows(opened)
+    continued_decisions = p177.build_decision_rows(continued)
+    shifted_decisions = p177.build_decision_rows(shifted)
+
+    assert any(row["decision_key"] == "final_decision" and row["decision_value"] == "0_bin_opened" for row in opened_decisions)
+    assert any(
+        row["decision_key"] == "final_decision" and row["decision_value"] == "continue_coupled_recovery"
+        for row in continued_decisions
+    )
+    assert any(
+        row["decision_key"] == "final_decision" and row["decision_value"] == "mechanism_shift_needed"
+        for row in shifted_decisions
     )

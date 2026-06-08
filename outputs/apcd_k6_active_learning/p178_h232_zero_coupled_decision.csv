@@ -1,0 +1,8 @@
+decision_key,decision_value,notes
+stage,09-P178,Stage 09 h232 zero coupled summary only; no K=6 phase-ramp or steering claim.
+baseline_phase_deg,19.94,h232 p1geom120x58 baseline supplied by current decision context.
+baseline_leakage,0.179,Leakage improvement is measured against this baseline.
+existing_results_count,0,Candidates with a local result CSV available.
+opens_0_count,0,Counts only nearest_bin=0 with early_pass=true.
+zero_bin_leakage_improved_count,0,Counts nearest_bin=0 candidates with leakage below the h232 baseline.
+final_decision,run_missing_real_fdtd_on_server,"No real result CSVs are present, so no mechanism decision is claimed."
