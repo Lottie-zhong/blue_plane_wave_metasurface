@@ -1,0 +1,2 @@
+K,wavelength_nm,target_angle_deg,supercell_period_nm,dimer_pitch_nm,expected_phase_step_deg,phase_bins_complete,all_anchors_early_pass,max_phase_error_deg,no_steering_claim
+6,633.0,15.0,2445.724192163921,407.62069869398687,60.0,True,True,23.00999999999999,True
