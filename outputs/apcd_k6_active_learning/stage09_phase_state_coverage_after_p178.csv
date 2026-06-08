@@ -1,0 +1,7 @@
+phase_bin_deg,coverage_status,anchor_candidate_id,notes
+-180,covered,,covered before P178
+-120,covered,,covered before P178
+-60,covered,,covered before P178
+0,covered,cpk_zero_l60_h232_p1geom120x58_p2geom76x137_01,opened by P176 h232 coupled recovery; P178 final decision 0_bin_opened
+60,covered,,covered before P178
+120,covered,,covered before P178

@@ -509,3 +509,28 @@ def test_p177_decision_logic_opens_continue_and_shift(p177) -> None:
         row["decision_key"] == "final_decision" and row["decision_value"] == "mechanism_shift_needed"
         for row in shifted_decisions
     )
+
+
+def test_p178_final_coverage_csv_marks_all_bins_covered() -> None:
+    import csv
+
+    coverage_path = REPO_ROOT / "outputs/apcd_k6_active_learning/stage09_phase_state_coverage_after_p178.csv"
+    with coverage_path.open("r", newline="", encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle))
+
+    assert [row["phase_bin_deg"] for row in rows] == ["-180", "-120", "-60", "0", "60", "120"]
+    assert all(row["coverage_status"] == "covered" for row in rows)
+    zero_row = next(row for row in rows if row["phase_bin_deg"] == "0")
+    assert zero_row["anchor_candidate_id"] == "cpk_zero_l60_h232_p1geom120x58_p2geom76x137_01"
+
+
+def test_p178_final_report_no_overclaim_wording() -> None:
+    report_path = REPO_ROOT / "reports/p178_zero_bin_opened_final_decision.md"
+    text = report_path.read_text(encoding="utf-8")
+
+    assert "Stage 09 single-dimer phase-state library coverage only" in text
+    assert "not a K=6 phase-ramp supercell" in text
+    assert "not a steering result" in text
+    assert "not a +15 steering result" in text
+    assert "not a Micro-LED result" in text
+    assert "cpk_zero_l60_h232_p1geom120x58_p2geom76x137_01" in text
