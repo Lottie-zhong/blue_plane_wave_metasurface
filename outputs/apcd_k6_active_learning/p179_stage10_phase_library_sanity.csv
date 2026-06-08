@@ -1,0 +1,10 @@
+check,status,details
+exact_six_bins,pass,"[-180, -120, -60, 0, 60, 120]"
+coverage_csv_exact_bins,pass,"[-180, -120, -60, 0, 60, 120]"
+coverage_csv_all_covered,pass,[]
+one_selected_anchor_per_bin,pass,"[cpk_resphase_scale104_nohelper_01, cpk_060_anchor_wh03_h425_scale98_01, cpk_060_boundary_h435_aniso_reduce10_01, cpk_zero_l60_h232_p1geom120x58_p2geom76x137_01, aggr_lhs_retention_dy_05, cpk_rot_release_02]"
+selected_anchors_early_pass,pass,[]
+zero_anchor_is_recommended,pass,cpk_zero_l60_h232_p1geom120x58_p2geom76x137_01
+missing_bins,pass,[]
+no_overclaim_wording,pass,"This is a Stage 10 input freeze of the Stage 09 single-dimer phase-state library only; it is not K=6 steering yet, not a K=6 phase-ramp supercell, not a +15 deg beam deflection result, and not a Micro-LED result."
+source_csvs_read,pass,"[outputs/apcd_k6_active_learning/combined_phase_knob_phase_state_coverage_p139.csv, outputs/apcd_k6_active_learning/phase_coverage_v8.csv, outputs/apcd_k6_active_learning/aggressive_phase_gap_top2_fdtd_results_v1.csv, outputs/apcd_k6_active_learning/accumulated_fdtd_diagnosis_v5.csv, outputs/apcd_k6_active_learning/p177_h232_zero_coupled_results.csv]"
