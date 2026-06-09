@@ -1,0 +1,13 @@
+candidate_id,group,same_cell_min_gap_nm,periodic_image_min_gap_nm,minimum_gap_nm_threshold,no_overlap_pass,same_cell_gap_pass,periodic_gap_pass,boundary_pass,height_fixed_pass,dimension_bounds_pass,duplicate_candidate_id_pass,duplicate_geometry_pass,overall_geometry_pass,recommended_for_fdtd,notes
+cpk_p196_zgap_dx_in_01,dimer_gap_coupling_offset,58.843266,104.410676,5.0,True,True,True,True,True,True,True,True,True,True,geometry sanity checks passed; not optically evaluated
+cpk_p196_zgap_dx_out_02,dimer_gap_coupling_offset,70.646599,92.764095,5.0,True,True,True,True,True,True,True,True,True,True,geometry sanity checks passed; not optically evaluated
+cpk_p196_zgap_dy_in_03,dimer_gap_coupling_offset,59.436741,104.073979,5.0,True,True,True,True,True,True,True,True,True,True,geometry sanity checks passed; not optically evaluated
+cpk_p196_zgap_shear_04,dimer_gap_coupling_offset,64.519268,98.434665,5.0,True,True,True,True,True,True,True,True,True,True,geometry sanity checks passed; not optically evaluated
+cpk_p196_znotch_p1r_05,mild_notch_slot_perturbation,64.519268,98.434665,5.0,True,True,True,True,True,True,True,True,True,True,geometry sanity checks passed; not optically evaluated
+cpk_p196_znotch_p2l_06,mild_notch_slot_perturbation,64.519268,98.434665,5.0,True,True,True,True,True,True,True,True,True,True,geometry sanity checks passed; not optically evaluated
+cpk_p196_zslot_bal_07,mild_notch_slot_perturbation,65.492392,99.391226,5.0,True,True,True,True,True,True,True,True,True,True,geometry sanity checks passed; not optically evaluated
+cpk_p196_zhelper_sq_far_08,weak_scalar_helper,30.765225,88.554911,5.0,True,True,True,True,True,True,True,True,True,True,geometry sanity checks passed; not optically evaluated
+cpk_p196_zhelper_diag_09,weak_scalar_helper,20.744953,98.434665,5.0,True,True,True,True,True,True,True,True,True,True,geometry sanity checks passed; not optically evaluated
+cpk_p196_zhelper_mid_10,weak_scalar_helper,7.138305,61.580308,5.0,True,True,True,True,True,True,True,True,True,True,geometry sanity checks passed; not optically evaluated
+cpk_p196_zbal_geom_a_11,balanced_p1_p2_geometry_compensation,65.814957,99.723216,5.0,True,True,True,True,True,True,True,True,True,True,geometry sanity checks passed; not optically evaluated
+cpk_p196_zbal_geom_b_12,balanced_p1_p2_geometry_compensation,63.226062,97.14792,5.0,True,True,True,True,True,True,True,True,True,True,geometry sanity checks passed; not optically evaluated
