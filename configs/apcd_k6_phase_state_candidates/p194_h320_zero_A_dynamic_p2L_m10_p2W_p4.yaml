@@ -1,0 +1,111 @@
+project:
+  name: blue_plane_wave_metasurface
+  stage: p194_h320_zero_mechanism_scout
+candidate:
+  variant_id: cpk_zero_l60_h232_p1geom120x58_p2geom76x137_01
+  candidate_type: h232_zero_coupled_p2_size_width_recovery
+  scheme_name: h232_zero_coupled_selectivity_recovery_stage09
+  description: P176 h232 zero-bin coupled selectivity recovery candidate cpk_zero_l60_h232_p1geom120x58_p2geom76x137_01
+  target_bins_deg: '0'
+  source_stage: 09-P176
+  anchor_candidate_id: aggr_lhs_retention_dy_05
+  baseline_candidate_id: cpk_zero_l60_lhs_h232_p1geom120x58_01
+  baseline_phase_deg: 19.94
+  baseline_target_conversion: 0.817
+  baseline_opposite_spin_leakage: 0.179
+  baseline_ratio: 4.57
+  source_plan_csv: outputs/apcd_k6_active_learning/p176_h232_zero_coupled_candidate_plan.csv
+  fabrication_rule: official candidates use integer-nm geometry at fixed height_nm=232;
+    no sub-nm official candidates
+  notes: Stage 09 YAML-only h232 zero-bin coupled recovery candidate; not K=6 phase-ramp,
+    not steering, not stage 10, and not a Micro-LED result.
+boundary:
+  no_k7: true
+  not_phase_ramp_supercell: true
+  not_steering_result: true
+  not_complete_k6_library_claim: true
+  not_stage10: true
+  no_fdtd_run_by_generator: true
+  integer_nm_official_geometry: true
+  fixed_height_nm: 320
+  minimum_gap_nm_threshold: 50.0
+  no_notch_in_p176_batch: true
+  fixed_height_platform_scan: true
+  fabrication_aware_same_height: true
+  not_k6_supercell: true
+  not_micro_led_result: true
+  p194_zero_mechanism_scout: true
+target:
+  wavelength_nm: 633
+  incident_wave: plane_wave
+  output_basis: alpha_beta
+  target_polarization_type: elliptical
+  psi_deg: 112.5
+  chi_deg: 22.5
+  eps: 1.0e-12
+  spin_er_threshold_db: 8
+  conversion_to_leakage_threshold: 6
+material:
+  substrate: Al2O3
+  meta_material: c-Si
+  substrate_material_lumerical: <Object defined dielectric>
+  meta_material_lumerical: <Object defined dielectric>
+  substrate_index: 1.76
+  meta_index: 3.88
+geometry:
+  layout_mode: manual_absolute
+  period_x_nm: 340
+  period_y_nm: 340
+  height_nm: 320.0
+  minimum_gap_nm: 50
+  nanopillar_1:
+    length_nm: 120
+    width_nm: 58
+    rotation_deg: 67.5
+    x_nm: 65
+    y_nm: 101
+    frac_x: 0.75
+    frac_y: 0.75
+    shape: rectangle
+  nanopillar_2:
+    length_nm: 66.0
+    width_nm: 141.0
+    rotation_deg: 112.5
+    x_nm: -65
+    y_nm: -101
+    frac_x: 0.25
+    frac_y: 0.25
+    shape: rectangle
+simulation:
+  substrate_thickness_nm: 220
+  source_offset_nm: 120
+  monitor_offset_nm: 180
+  z_padding_above_nm: 260
+  mesh_accuracy: 1
+  simulation_time_fs: 250
+output:
+  result_dir: outputs/apcd_k6_metagrating_633nm/phase_state_candidates/p194_h320_zero_A_dynamic_p2L_m10_p2W_p4
+metadata:
+  p187_source_candidate_id: cpk_zero_l60_h232_p1geom120x58_p2geom76x137_01
+  p187_source_bin_deg: 0
+  p187_fixed_height_nm: 320
+  p187_note: Fixed-height platform scan from robust P185/P186B source families. All
+    height_nm fields are globally fixed; lateral geometry is preserved.
+  p194_group: A_dynamic
+  p194_variant_id: p2L_m10_p2W_p4
+  p194_base_candidate_id: p187_fh320_p000_from_cpk_zero_l60_h232_p1geom120x58_p2geom76x137_01
+  p194_purpose: strong p2 aspect compensation; seek phase drop toward 0
+  p194_fixed_height_nm: 320
+  p194_success_criterion: 'phase-hit first: nearest_bin=0 and target_conversion>0.5'
+  p194_ops:
+  - type: lateral
+    target: p2
+    kind: length
+    delta: -10.0
+  - type: lateral
+    target: p2
+    kind: width
+    delta: 4.0
+  p194_changed_fields:
+  - geometry.nanopillar_2.length_nm:76.0->66.0
+  - geometry.nanopillar_2.width_nm:137.0->141.0

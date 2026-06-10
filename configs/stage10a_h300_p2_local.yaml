@@ -1,0 +1,28 @@
+project:
+  name: blue_plane_wave_metasurface
+  stage: stage10a_h300_p2_role_local_lookup
+base_configs:
+  x: configs/stage10a_h300_p2_local_x.yaml
+  y: configs/stage10a_h300_p2_local_y.yaml
+sweep:
+  length_nm:
+  - 65
+  - 70
+  - 75
+  - 80
+  - 85
+  - 90
+  width_nm:
+  - 120
+  - 125
+  - 130
+  - 135
+  - 140
+  - 145
+  - 150
+  height_nm:
+  - 300
+  rotation_deg:
+  - 0
+output:
+  result_dir: outputs/stage10a_h300_p2_local

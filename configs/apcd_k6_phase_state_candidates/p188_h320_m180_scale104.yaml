@@ -1,0 +1,103 @@
+project:
+  name: blue_plane_wave_metasurface
+  stage: p188_h320_lateral_compensation_scout
+candidate:
+  variant_id: cpk_resphase_scale104_nohelper_01
+  candidate_type: resphase_fixed_core_size
+  description: 09-P96 no-helper fixed APCD core common size scale 1.04
+  scheme_name: resphase_core_preserve
+  target_bins_deg: 60/0/-60
+  source_stage: 09-P96
+  result_stage: 09-P97
+  helper_role: none
+  risk_level: medium
+  expected_phase_direction: use core-size resonance phase while preserving APCD rotations
+  design_rationale: Commonly scales both APCD pillars by 1.04 at fixed 67.5/112.5
+    deg rotations and no helper; tests resonance phase with min gap above 50 nm.
+  source_plan_csv: outputs/apcd_k6_active_learning/combined_phase_knob_p96_resphase_core_preserve_plan.csv
+  source_selection_csv: outputs/apcd_k6_active_learning/combined_phase_knob_p96_resphase_core_preserve_selection.csv
+  source_coverage_csv: outputs/apcd_k6_active_learning/combined_phase_knob_phase_state_coverage_p95.csv
+  notes: Stage 09 resonance-phase candidate; not K=6 phase-ramp, not steering, and
+    not a complete phase-state library claim.
+boundary:
+  no_k7: true
+  not_phase_ramp_supercell: true
+  not_steering_result: true
+  not_complete_k6_library_claim: true
+  not_random_helper_shape: true
+  not_freeform_helper_shape: true
+  not_stronger_common_rotation_phase_pulling: true
+  fixed_height_platform_scan: true
+  fabrication_aware_same_height: true
+  not_k6_supercell: true
+  not_micro_led_result: true
+  fixed_height_nm: 320
+  p188_lateral_compensation_only: true
+target:
+  wavelength_nm: 633
+  incident_wave: plane_wave
+  output_basis: alpha_beta
+  target_polarization_type: elliptical
+  psi_deg: 112.5
+  chi_deg: 22.5
+  eps: 1.0e-12
+  spin_er_threshold_db: 8
+  conversion_to_leakage_threshold: 6
+material:
+  substrate: Al2O3
+  meta_material: c-Si
+  substrate_material_lumerical: <Object defined dielectric>
+  meta_material_lumerical: <Object defined dielectric>
+  substrate_index: 1.76
+  meta_index: 3.88
+geometry:
+  layout_mode: manual_absolute
+  period_x_nm: 340
+  period_y_nm: 340
+  height_nm: 320.0
+  minimum_gap_nm: 50
+  nanopillar_1:
+    length_nm: 140.608
+    width_nm: 75.712
+    rotation_deg: 67.5
+    x_nm: 85.0
+    y_nm: 85.0
+    frac_x: 0.75
+    frac_y: 0.75
+  nanopillar_2:
+    length_nm: 91.936
+    width_nm: 162.24
+    rotation_deg: 112.5
+    x_nm: -85.0
+    y_nm: -85.0
+    frac_x: 0.25
+    frac_y: 0.25
+simulation:
+  substrate_thickness_nm: 220
+  source_offset_nm: 120
+  monitor_offset_nm: 180
+  z_padding_above_nm: 260
+  mesh_accuracy: 1
+  simulation_time_fs: 250
+output:
+  result_dir: outputs/apcd_k6_metagrating_633nm/phase_state_candidates/p188_h320_m180_scale104
+metadata:
+  p187_source_candidate_id: cpk_resphase_scale104_nohelper_01
+  p187_source_bin_deg: -180
+  p187_fixed_height_nm: 320
+  p187_note: Fixed-height platform scan from robust P185/P186B source families. All
+    height_nm fields are globally fixed; lateral geometry is preserved.
+  p188_base_candidate_id: p187_fh320_m180_from_cpk_resphase_scale104_nohelper_01
+  p188_branch: m180
+  p188_variant_id: scale104
+  p188_purpose: stronger push toward -120
+  p188_fixed_height_nm: 320
+  p188_ops:
+  - mode: scale
+    target: all_core
+    factor: 1.04
+  p188_changed_fields:
+  - geometry.nanopillar_1.length_nm:135.2->140.608
+  - geometry.nanopillar_1.width_nm:72.8->75.712
+  - geometry.nanopillar_2.length_nm:88.4->91.936
+  - geometry.nanopillar_2.width_nm:156.0->162.24

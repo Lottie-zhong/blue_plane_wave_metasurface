@@ -1,0 +1,27 @@
+project:
+  name: blue_plane_wave_metasurface
+  stage: stage10a_h300_hwp_bridge_lookup
+base_configs:
+  x: configs/stage10a_h300_hwp_bridge_x.yaml
+  y: configs/stage10a_h300_hwp_bridge_y.yaml
+sweep:
+  length_nm:
+  - 140
+  - 145
+  - 150
+  - 155
+  - 160
+  width_nm:
+  - 60
+  - 65
+  - 70
+  - 75
+  - 80
+  - 85
+  - 90
+  height_nm:
+  - 300
+  rotation_deg:
+  - 0
+output:
+  result_dir: outputs/stage10a_h300_hwp_bridge

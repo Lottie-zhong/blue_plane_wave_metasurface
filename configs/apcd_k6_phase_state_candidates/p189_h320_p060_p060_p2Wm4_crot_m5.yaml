@@ -1,0 +1,100 @@
+project:
+  name: blue_plane_wave_metasurface
+  stage: p189_h320_rotation_scout
+candidate:
+  variant_id: aggr_lhs_retention_dy_05
+  candidate_type: lhs_like_retention_high_dy
+  description: aggressive phase-gap 60-90 deg selected candidate
+  source_pool_csv: outputs/apcd_k6_active_learning/aggressive_phase_gap_candidate_pool_v1.csv
+  source_selection_csv: outputs/apcd_k6_active_learning/aggressive_phase_gap_fdtd_selection_v1.csv
+  notes: 09-P18 generated config for aggressive top-2 only; no config generated for
+    aggr_bridge_lhs_fine_05
+boundary:
+  no_k7: true
+  not_phase_ramp_supercell: true
+  not_steering_result: true
+  fixed_height_platform_scan: true
+  fabrication_aware_same_height: true
+  not_k6_supercell: true
+  not_micro_led_result: true
+  fixed_height_nm: 320
+  p188_lateral_compensation_only: true
+  p189_rotation_only: true
+target:
+  wavelength_nm: 633
+  incident_wave: plane_wave
+  output_basis: alpha_beta
+  target_polarization_type: elliptical
+  psi_deg: 112.5
+  chi_deg: 22.5
+  eps: 1.0e-12
+  spin_er_threshold_db: 8
+  conversion_to_leakage_threshold: 6
+material:
+  substrate: Al2O3
+  meta_material: c-Si
+  substrate_material_lumerical: <Object defined dielectric>
+  meta_material_lumerical: <Object defined dielectric>
+  substrate_index: 1.76
+  meta_index: 3.88
+geometry:
+  layout_mode: manual_absolute
+  period_x_nm: 340
+  period_y_nm: 340
+  height_nm: 320.0
+  minimum_gap_nm: 5
+  nanopillar_1:
+    length_nm: 115
+    width_nm: 55
+    rotation_deg: 62.5
+    x_nm: 65
+    y_nm: 101
+    frac_x: 0.75
+    frac_y: 0.75
+  nanopillar_2:
+    length_nm: 75
+    width_nm: 131.0
+    rotation_deg: 107.5
+    x_nm: -65
+    y_nm: -101
+    frac_x: 0.25
+    frac_y: 0.25
+simulation:
+  substrate_thickness_nm: 220
+  source_offset_nm: 120
+  monitor_offset_nm: 180
+  z_padding_above_nm: 260
+  mesh_accuracy: 1
+  simulation_time_fs: 250
+output:
+  result_dir: outputs/apcd_k6_metagrating_633nm/phase_state_candidates/p189_h320_p060_p060_p2Wm4_crot_m5
+metadata:
+  p187_source_candidate_id: aggr_lhs_retention_dy_05
+  p187_source_bin_deg: 60
+  p187_fixed_height_nm: 320
+  p187_note: Fixed-height platform scan from robust P185/P186B source families. All
+    height_nm fields are globally fixed; lateral geometry is preserved.
+  p188_base_candidate_id: p187_fh320_p060_from_aggr_lhs_retention_dy_05
+  p188_branch: p060
+  p188_variant_id: p2W_m4
+  p188_purpose: p2 width down
+  p188_fixed_height_nm: 320
+  p188_ops:
+  - mode: delta
+    target: p2
+    kind: width
+    delta: -4.0
+  p188_changed_fields:
+  - geometry.nanopillar_2.width_nm:135.0->131.0
+  p189_target_branch: p060
+  p189_base_key: p060_p2Wm4
+  p189_base_candidate_id: p188_h320_p060_p2W_m4
+  p189_variant_id: crot_m5
+  p189_purpose: p2W_m4 borderline leakage, common rot -5
+  p189_fixed_height_nm: 320
+  p189_ops:
+  - target: all_core
+    delta: -5.0
+  p189_changed_fields:
+  - geometry.nanopillar_1.rotation_deg:67.5->62.5
+  - geometry.nanopillar_2.rotation_deg:112.5->107.5

@@ -1,0 +1,31 @@
+project:
+  name: blue_plane_wave_metasurface
+  stage: stage10a_h300_single_pillar_lookup_x
+target:
+  wavelength_nm: 633
+  incident_wave: plane_wave
+  incident_polarization: x
+  output_polarization: x
+  deflection_angle_deg: 0
+  target_order: zero
+material:
+  metasurface: c-Si
+  metasurface_index: 3.87
+geometry:
+  period_nm: 340
+  length_nm: 115
+  width_nm: 55
+  height_nm: 300
+  rotation_deg: 0
+far_field:
+  projection_direction: auto
+  material_index: auto
+  far_field_filter: 1
+  resolution_2d: 1001
+  resolution_3d: 1001
+  assume_structure_is_periodic: true
+  illumination: Gaussian Spot
+  override_near_field_mesh: false
+  near_field_samples_per_wavelength: 4
+output:
+  result_dir: outputs/stage10a_h300_single_pillar_pilot/base_x

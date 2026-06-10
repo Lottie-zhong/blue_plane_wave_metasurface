@@ -1,0 +1,111 @@
+project:
+  name: blue_plane_wave_metasurface
+  stage: p202_h300_phasepull_rotation_compensation
+candidate:
+  variant_id: aggr_lhs_retention_dy_05
+  candidate_type: lhs_like_retention_high_dy
+  description: aggressive phase-gap 60-90 deg selected candidate
+  source_pool_csv: outputs/apcd_k6_active_learning/aggressive_phase_gap_candidate_pool_v1.csv
+  source_selection_csv: outputs/apcd_k6_active_learning/aggressive_phase_gap_fdtd_selection_v1.csv
+  notes: 09-P18 generated config for aggressive top-2 only; no config generated for
+    aggr_bridge_lhs_fine_05
+boundary:
+  no_k7: true
+  not_phase_ramp_supercell: true
+  not_steering_result: true
+  fixed_height_projection: true
+  fabrication_aware_same_height: true
+  not_k6_supercell: true
+  not_micro_led_result: true
+  fixed_height_nm: 300.0
+  no_helper_branch: true
+  p201_h300_60_to_0_phase_bias_scout: true
+  p202_phasepull_rotation_compensation: true
+target:
+  wavelength_nm: 633
+  incident_wave: plane_wave
+  output_basis: alpha_beta
+  target_polarization_type: elliptical
+  psi_deg: 112.5
+  chi_deg: 22.5
+  eps: 1.0e-12
+  spin_er_threshold_db: 8
+  conversion_to_leakage_threshold: 6
+material:
+  substrate: Al2O3
+  meta_material: c-Si
+  substrate_material_lumerical: <Object defined dielectric>
+  meta_material_lumerical: <Object defined dielectric>
+  substrate_index: 1.76
+  meta_index: 3.88
+geometry:
+  layout_mode: manual_absolute
+  period_x_nm: 340
+  period_y_nm: 340
+  height_nm: 300.0
+  minimum_gap_nm: 5
+  nanopillar_1:
+    length_nm: 115
+    width_nm: 55
+    rotation_deg: 67.5
+    x_nm: 65
+    y_nm: 101
+    frac_x: 0.75
+    frac_y: 0.75
+  nanopillar_2:
+    length_nm: 73.0
+    width_nm: 136.0
+    rotation_deg: 110.0
+    x_nm: -65
+    y_nm: -101
+    frac_x: 0.25
+    frac_y: 0.25
+simulation:
+  substrate_thickness_nm: 220
+  source_offset_nm: 120
+  monitor_offset_nm: 180
+  z_padding_above_nm: 260
+  mesh_accuracy: 1
+  simulation_time_fs: 250
+output:
+  result_dir: outputs/apcd_k6_metagrating_633nm/phase_state_candidates/p202_h300_phasepull_rotcomp_A_m2_p2rot_m2p5
+metadata:
+  p185_source_candidate_id: aggr_lhs_retention_dy_05
+  p185_source_target_bin_deg: 60
+  p185_fixed_height_nm: 300
+  p185_source_config_path: configs/apcd_k6_phase_state_candidates/aggr_lhs_retention_dy_05.yaml
+  p185_note: Projection from mixed-height frozen library to a globally fixed-height
+    single-dimer candidate. Lateral geometry is preserved in this first diagnostic
+    pass.
+  p201_source_anchor: p185_fh300_p060_from_aggr_lhs_retention_dy_05
+  p201_source_summary: 'h300 60deg early-pass anchor: phase≈72.24, target≈0.857, leakage≈0.103,
+    ratio≈8.33'
+  p201_group: A_p2_length_down_width_up
+  p201_variant: p2L_m2_p2W_p1
+  p201_purpose: mild p2 phase pull with width compensation
+  p201_success_primary: -30<=phase_deg<=30 and early_pass=True
+  p201_success_healthy_trend: 30<phase_deg<=45 and early_pass=True
+  p201_useful_nearmiss: phase_deg<=45, leakage<=0.25, 4<=ratio<6
+  p201_ops:
+  - type: lateral_delta
+    target: p2
+    dL: -2.0
+    dW: 1.0
+  p201_changed_fields:
+  - p2.length_nm 75.0->73.0; p2.width_nm 135.0->136.0
+  p202_base_candidate_id: p201_h300_60to0_A_p2_length_down_width_up_p2L_m2_p2W_p1
+  p202_base_key: A_m2
+  p202_base_summary: phase≈68.86, leakage≈0.136, ratio≈6.33, still healthy 60
+  p202_variant: p2rot_m2p5
+  p202_purpose: mild healthy phase-pull point plus p2 -2.5deg selectivity compensation
+  p202_strategy: combine P201 phase-pull geometry with selectivity-restoring p2 negative
+    micro-rotation
+  p202_success_primary: -30<=phase_deg<=30 and early_pass=True
+  p202_success_healthy_trend: 30<phase_deg<=45 and early_pass=True
+  p202_useful_nearmiss: phase_deg<=45, leakage<=0.25, 4<=ratio<6
+  p202_ops:
+  - type: rotation_delta
+    target: p2
+    dRot: -2.5
+  p202_changed_fields:
+  - p2.rotation_deg 112.5->110.0
